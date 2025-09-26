@@ -57,82 +57,164 @@ void BusPowerSupplyModule::setup(bool configured)
     openknx.gpio.pinMode(OPENKNX_BPS_STATUS_RST, OUTPUT, true, !OPENKNX_BPS_STATUS_ACTIVE_ON);
     openknx.gpio.pinMode(OPENKNX_BPS_SWITCH_RST, INPUT);
 
-    if (inaKnx.begin())
+    analogReadResolution(12);
+
+    if (_inaKnx.begin())
     {
-        logDebugP("KNX INA226 setup done with address %u", inaKnx.getAddress());
+        logDebugP("KNX INA226 setup done with address %u", _inaKnx.getAddress());
         logIndentUp();
 
-        // inaKnx.setBusVoltageRange(32);
-        // inaKnx.setGain(1);
-        uint32_t result = inaKnx.setMaxCurrentShunt(0.5, 0.1);
+        uint32_t result = _inaKnx.setMaxCurrentShunt(3, OPENKNX_BPS_CURRENT_KNX_INA_SHUNT);
         if (result != 0)
             logDebugP("KNX INA226 setMaxCurrentShunt failed with error code %u", result);
-        inaKnx.setModeShuntContinuous();
+        _inaKnx.setModeShuntContinuous();
+
+#ifdef OPENKNX_DEBUG
         delay(1000);
-
-        // logDebugP("getBusVoltageRange %u", inaKnx.getBusVoltageRange());
-        // logDebugP("getGain %u", inaKnx.getGain());
-        // logDebugP("getBusADC %u", inaKnx.getBusADC());
-        // logDebugP("getShuntADC %u", inaKnx.getShuntADC());
-        logDebugP("getMode %u", inaKnx.getMode());
-
-        logDebugP("isCalibrated %u", inaKnx.isCalibrated());
-        logDebugP("getCurrentLSB %.4f", inaKnx.getCurrentLSB());
-        logDebugP("getShunt %.4f", inaKnx.getShunt());
-        logDebugP("getMaxCurrent %.4f", inaKnx.getMaxCurrent());
+        logDebugP("getMode %u", _inaKnx.getMode());
+        logDebugP("isCalibrated %u", _inaKnx.isCalibrated());
+        logDebugP("getCurrentLSB %.4f", _inaKnx.getCurrentLSB());
+        logDebugP("getShunt %.4f", _inaKnx.getShunt());
+        logDebugP("getMaxCurrent %.4f", _inaKnx.getMaxCurrent());
+#endif
         logIndentDown();
     }
     else
-        logDebugP("KNX INA226 not found at address %u", inaKnx.getAddress());
+        logDebugP("KNX INA226 not found at address %u", _inaKnx.getAddress());
 
-    if (inaAux.begin())
+    if (_inaAux.begin())
     {
-        logDebugP("AUX INA226 setup done with address %u", inaAux.getAddress());
+        logDebugP("AUX INA226 setup done with address %u", _inaAux.getAddress());
         logIndentUp();
 
-        // inaAux.setBusVoltageRange(32);
-        // inaAux.setGain(1);
-        uint32_t result = inaAux.setMaxCurrentShunt(0.5, 0.1);
+        uint32_t result = _inaAux.setMaxCurrentShunt(3, OPENKNX_BPS_CURRENT_AUX_INA_SHUNT);
         if (result != 0)
             logDebugP("AUX INA226 setMaxCurrentShunt failed with error code %u", result);
-        inaAux.setAverage(INA226_128_SAMPLES);
-        inaAux.setModeShuntContinuous();
+        _inaAux.setModeShuntContinuous();
+
+#ifdef OPENKNX_DEBUG
         delay(1000);
-
-        // logDebugP("getBusVoltageRange %u", inaAux.getBusVoltageRange());
-        // logDebugP("getGain %u", inaAux.getGain());
-        // logDebugP("getBusADC %u", inaAux.getBusADC());
-        // logDebugP("getShuntADC %u", inaAux.getShuntADC());
-        logDebugP("getMode %u", inaAux.getMode());
-
-        logDebugP("isCalibrated %u", inaAux.isCalibrated());
-        logDebugP("getCurrentLSB %.4f", inaAux.getCurrentLSB());
-        logDebugP("getShunt %.4f", inaAux.getShunt());
-        logDebugP("getMaxCurrent %.4f", inaAux.getMaxCurrent());
+        logDebugP("getMode %u", _inaAux.getMode());
+        logDebugP("isCalibrated %u", _inaAux.isCalibrated());
+        logDebugP("getCurrentLSB %.4f", _inaAux.getCurrentLSB());
+        logDebugP("getShunt %.4f", _inaAux.getShunt());
+        logDebugP("getMaxCurrent %.4f", _inaAux.getMaxCurrent());
+#endif
         logIndentDown();
     }
     else
-        logDebugP("AUX INA226 not found at address %u", inaAux.getAddress());
+        logDebugP("AUX INA226 not found at address %u", _inaAux.getAddress());
+}
+
+float BusPowerSupplyModule::estimateBusLoad()
+{
+    TpUartDataLinkLayer* dll = knx.bau().getDataLinkLayer();
+    TPUart::Statistics& statistics = dll->getTPUart().getStatistics();
+    uint32_t currentTime = millis();
+    uint32_t timeDiff = currentTime - _rxLastBusLoadTime;
+    uint32_t currentBytes = statistics.getRxBusBytes();
+    uint32_t bytesPerSecond = (currentBytes - _rxLastBusBytes) / timeDiff * 1000;
+    _rxLastBusLoadTime = currentTime;
+    _rxLastBusBytes = currentBytes;
+
+    return (float)bytesPerSecond / (float)BUS_LOAD_MAX_BYTES_PER_SECOND;
 }
 
 void BusPowerSupplyModule::loop()
 {
-    if (delayCheck(debugTimer, 1000)) {
-        float pwr1Voltage = (float)analogRead(OPENKNX_BPS_PWR1_CHECK_PIN) / (float)1023 * (float)3.3 * (float)OPENKNX_BPS_PWR_CHECK_FACTOR;
-        float pwr2Voltage = (float)analogRead(OPENKNX_BPS_PWR2_CHECK_PIN) / (float)1023 * (float)3.3 * (float)OPENKNX_BPS_PWR_CHECK_FACTOR;
+#ifdef OPENKNX_DEBUG
+    if (delayCheck(_debugTimer, 1000)) {
+        float pwr1Voltage = (float)analogRead(OPENKNX_BPS_PWR1_CHECK_PIN) / (float)4095 * (float)3.3 * (float)OPENKNX_BPS_PWR_CHECK_FACTOR;
+        float pwr2Voltage = (float)analogRead(OPENKNX_BPS_PWR2_CHECK_PIN) / (float)4095 * (float)3.3 * (float)OPENKNX_BPS_PWR_CHECK_FACTOR;
         logDebugP("PWR1 Voltage: %.2f V, PWR2 Voltage: %.2f V", pwr1Voltage, pwr2Voltage);
 
-        float knxCurrent = inaKnx.getCurrent_mA();
-        float knxVoltage = inaKnx.getBusVoltage();
-        logDebugP("KNX Power: %.2f mA at %.2f V", knxCurrent, knxVoltage);
+        float busCurrent = _inaKnx.getCurrent_mA();
+        float busVoltage = _inaKnx.getBusVoltage();
+        logDebugP("KNX Power: %.2f mA at %.2f V", busCurrent, busVoltage);
 
-        float auxCurrent = inaAux.getCurrent_mA();
-        float auxVoltage = inaAux.getBusVoltage();
-        float auxPower = inaAux.getPower_mW();
-        int test = inaAux.getRegister(0x02);
+        float auxCurrent = _inaAux.getCurrent_mA();
+        float auxVoltage = _inaAux.getBusVoltage();
+        float auxPower = _inaAux.getPower_mW();
+        int test = _inaAux.getRegister(0x02);
         logDebugP("AUX Power: %.2f mA at %.2f V, auxPower: %.2f, REG 0x02: %u", auxCurrent, auxVoltage, auxPower, test);
 
-        debugTimer = delayTimerInit();
+        _debugTimer = delayTimerInit();
+    }
+#endif
+
+    if (ParamBPS_BusVoltageChangeSend)
+    {
+        float busVoltage = _inaKnx.getBusVoltage_mV();
+        if (abs(_lastBusVoltageSent - busVoltage) > VOLTAGE_MIN_DIFFERENCE ||
+            ParamBPS_BusVoltageCyclicTimeMS > 0 && delayCheck(_busVoltageSentTimer, ParamBPS_BusVoltageCyclicTimeMS))
+        {
+            KoBPS_BusVoltage.value(busVoltage, DPT_Value_Volt);
+            _lastBusVoltageSent = busVoltage;
+            _busVoltageSentTimer = delayTimerInit();
+        }
+    }
+
+    if (ParamBPS_BusCurrentChangeSend)
+    {
+        float busCurrent = _inaKnx.getCurrent_mA();
+        if (abs(_lastBusCurrentSent - busCurrent) > CURRENT_MIN_DIFFERENCE ||
+            ParamBPS_BusCurrentCyclicTimeMS > 0 && delayCheck(_busCurrentSentTimer, ParamBPS_BusCurrentCyclicTimeMS))
+        {
+            KoBPS_BusCurrent.value(busCurrent, DPT_Value_Volt);
+            _lastBusCurrentSent = busCurrent;
+            _busCurrentSentTimer = delayTimerInit();
+        }
+    }
+
+    if (ParamBPS_BusLoadChangeSend)
+    {
+        if (delayCheck(_busLoadSentTimer, BUS_LOAD_UPDATE_RATE))
+        {
+            float busLoad = estimateBusLoad();
+            if (abs(_lastBusLoadSent - busLoad) > LOAD_MIN_DIFFERENCE ||
+                ParamBPS_BusLoadCyclicTimeMS > 0 && delayCheck(_busLoadSentTimer, ParamBPS_BusLoadCyclicTimeMS))
+            {
+                KoBPS_BusLoad.value(busLoad, DPT_Scaling);
+                _lastBusLoadSent = busLoad;
+                _busLoadSentTimer = delayTimerInit();
+            }
+        }
+    }
+
+    if (ParamBPS_AuxVoltageChangeSend)
+    {
+        float auxVoltage = _inaKnx.getBusVoltage_mV();
+        if (abs(_lastAuxVoltageSent - auxVoltage) > VOLTAGE_MIN_DIFFERENCE ||
+            ParamBPS_AuxVoltageCyclicTimeMS > 0 && delayCheck(_auxVoltageSentTimer, ParamBPS_AuxVoltageCyclicTimeMS))
+        {
+            KoBPS_AuxVoltage.value(auxVoltage, DPT_Value_Volt);
+            _lastAuxVoltageSent = auxVoltage;
+            _auxVoltageSentTimer = delayTimerInit();
+        }
+    }
+
+    if (ParamBPS_AuxCurrentChangeSend)
+    {
+        float auxCurrent = _inaKnx.getCurrent_mA();
+        if (abs(_lastAuxCurrentSent - auxCurrent) > CURRENT_MIN_DIFFERENCE ||
+            ParamBPS_AuxCurrentCyclicTimeMS > 0 && delayCheck(_auxCurrentSentTimer, ParamBPS_AuxCurrentCyclicTimeMS))
+        {
+            KoBPS_AuxCurrent.value(auxCurrent, DPT_Value_Volt);
+            _lastAuxCurrentSent = auxCurrent;
+            _auxCurrentSentTimer = delayTimerInit();
+        }
+    }
+    
+    if (ParamBPS_TemperatureChangeSend)
+    {
+        float temperature = _temperature.readTemperatureC();
+        if (abs(_lastTemperatureSent - temperature) > TEMPERATURE_MIN_DIFFERENCE ||
+            ParamBPS_TemperatureCyclicTimeMS > 0 && delayCheck(_temperaturSentTimer, ParamBPS_TemperatureCyclicTimeMS))
+        {
+            KoBPS_Temperature.value(temperature, DPT_Value_Temp);
+            _lastTemperatureSent = temperature;
+            _temperaturSentTimer = delayTimerInit();
+        }
     }
 }
 

@@ -13,12 +13,8 @@
         "type": "git",
         "url": "https://github.com/OpenKNX/OFM-BusPowerSupply"
     },
-    "dependencies":
-    [
-        {
-            "owner": "robtillaart",
-            "name": "INA226",
-            "version": "^0.6.4"
-        }
-    ]
+    "dependencies": {
+        "robtillaart/INA226": "^0.6.4",
+        "jeremycole/I2C Temperature Sensors derived from the LM75": "1.0.3"
+    }
 }
