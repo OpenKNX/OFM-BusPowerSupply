@@ -40,11 +40,13 @@ void BusPowerSupplyModule::setup(bool configured)
     openknx.gpio.pinMode(OPENKNX_BPS_PWR1_CHECK_PIN, INPUT);
     openknx.gpio.pinMode(OPENKNX_BPS_PWR1_SWITCH_ON_PIN, OUTPUT, true, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
     openknx.gpio.pinMode(OPENKNX_BPS_PWR1_SWITCH_OFF_PIN, OUTPUT, true, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+    pwr1RelayCoilsOff();
     openknx.gpio.pinMode(OPENKNX_BPS_PWR1_ALERT_PIN, INPUT);
 
     openknx.gpio.pinMode(OPENKNX_BPS_PWR2_CHECK_PIN, INPUT);
     openknx.gpio.pinMode(OPENKNX_BPS_PWR2_SWITCH_ON_PIN, OUTPUT, true, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
     openknx.gpio.pinMode(OPENKNX_BPS_PWR2_SWITCH_OFF_PIN, OUTPUT, true, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+    pwr2RelayCoilsOff();
     openknx.gpio.pinMode(OPENKNX_BPS_PWR2_ALERT_PIN, INPUT);
 
     openknx.gpio.pinMode(OPENKNX_BPS_STATUS_BUS, OUTPUT, true, !OPENKNX_BPS_STATUS_ACTIVE_ON);
@@ -67,6 +69,7 @@ void BusPowerSupplyModule::setup(bool configured)
         uint32_t result = _inaKnx.setMaxCurrentShunt(3, OPENKNX_BPS_CURRENT_KNX_INA_SHUNT);
         if (result != 0)
             logDebugP("KNX INA226 setMaxCurrentShunt failed with error code %u", result);
+        _inaKnx.setAverage(INA226_16_SAMPLES);
         _inaKnx.setModeShuntContinuous();
 
 #ifdef OPENKNX_DEBUG
@@ -90,6 +93,7 @@ void BusPowerSupplyModule::setup(bool configured)
         uint32_t result = _inaAux.setMaxCurrentShunt(3, OPENKNX_BPS_CURRENT_AUX_INA_SHUNT);
         if (result != 0)
             logDebugP("AUX INA226 setMaxCurrentShunt failed with error code %u", result);
+        _inaAux.setAverage(INA226_16_SAMPLES);
         _inaAux.setModeShuntContinuous();
 
 #ifdef OPENKNX_DEBUG
@@ -122,10 +126,103 @@ float BusPowerSupplyModule::estimateBusLoad()
 
 void BusPowerSupplyModule::loop()
 {
+    float pwr1Voltage = (float)analogRead(OPENKNX_BPS_PWR1_CHECK_PIN) / (float)4095 * (float)3.3 * (float)OPENKNX_BPS_PWR_CHECK_FACTOR;
+    bool pwr1Ok = pwr1Voltage > POWER_OK_THRESHOLD_VOLTAGE;
+    if (_pwr1Ok != pwr1Ok)
+    {
+        _pwr1Ok = pwr1Ok;
+        openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_PW1, _pwr1Ok ? OPENKNX_BPS_STATUS_ACTIVE_ON : !OPENKNX_BPS_STATUS_ACTIVE_ON);
+    }
+
+    float pwr2Voltage = (float)analogRead(OPENKNX_BPS_PWR2_CHECK_PIN) / (float)4095 * (float)3.3 * (float)OPENKNX_BPS_PWR_CHECK_FACTOR;
+    bool pwr2Ok = pwr2Voltage > POWER_OK_THRESHOLD_VOLTAGE;
+    if (_pwr2Ok != pwr2Ok)
+    {
+        _pwr2Ok = pwr2Ok;
+        openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_PW2, _pwr2Ok ? OPENKNX_BPS_STATUS_ACTIVE_ON : !OPENKNX_BPS_STATUS_ACTIVE_ON);
+    }
+
+    // if ((_pwr1Ok || _pwr2Ok) && openknx.common.isSaveTriggered())
+    // {
+    //     openknx.common.restoreSavePin();
+    //     logInfoP("SAVE restored.");
+    // }
+    
+    if (_pwrActive == 1 && !_pwr1Ok)
+    {
+        if (_pwr2Ok)
+        {
+            pwr1Off();
+            pwr2On();
+            _pwrActive = 2;
+            _pwrErrorLogged = false;
+            logInfoP("PWR1 failed, switched to PWR2");
+        }
+        else
+        {
+            if (!_pwrErrorLogged)
+            {
+                _pwrErrorLogged = true;
+                logErrorP("PWR1 failed, PWR2 is NOT available, too!");
+
+                openknx.common.triggerSavePin();
+                logInfoP("SAVE triggered.");
+            }
+        }
+    }
+    else if (_pwrActive == 2 && !_pwr2Ok)
+    {
+        if (_pwr1Ok)
+        {
+            pwr2Off();
+            pwr1On();
+            _pwrActive = 1;
+            _pwrErrorLogged = false;
+            logInfoP("PWR2 failed, switched to PWR1");
+        }
+        else
+        {
+            if (!_pwrErrorLogged)
+            {
+                _pwrErrorLogged = true;
+                logErrorP("PWR2 failed, PWR1 is NOT available, too!");
+
+                openknx.common.triggerSavePin();
+                logInfoP("SAVE triggered.");
+            }
+        }
+    }
+    else if (_pwrActive == 0)
+    {
+        if (_pwr1Ok)
+        {
+            pwr2Off();
+            pwr1On();
+            _pwrActive = 1;
+            _pwrErrorLogged = false;
+            logInfoP("Power supply started, PWR1 available, switching to PWR1");
+        }
+        else if (_pwr2Ok)
+        {
+            pwr1Off();
+            pwr2On();
+            _pwrActive = 2;
+            _pwrErrorLogged = false;
+            logInfoP("Power supply started, PWR2 available, switching to PWR2");
+        }
+        else
+        {
+            if (!_pwrErrorLogged)
+            {
+                _pwrErrorLogged = true;
+                logErrorP("Power supply started, no power supply available!");
+            }
+        }
+    }
+
 #ifdef OPENKNX_DEBUG
-    if (delayCheck(_debugTimer, 1000)) {
-        float pwr1Voltage = (float)analogRead(OPENKNX_BPS_PWR1_CHECK_PIN) / (float)4095 * (float)3.3 * (float)OPENKNX_BPS_PWR_CHECK_FACTOR;
-        float pwr2Voltage = (float)analogRead(OPENKNX_BPS_PWR2_CHECK_PIN) / (float)4095 * (float)3.3 * (float)OPENKNX_BPS_PWR_CHECK_FACTOR;
+    if (delayCheck(_debugTimer, 1000))
+    {
         logDebugP("PWR1 Voltage: %.2f V, PWR2 Voltage: %.2f V", pwr1Voltage, pwr2Voltage);
 
         float busCurrent = _inaKnx.getCurrent_mA();
@@ -134,17 +231,42 @@ void BusPowerSupplyModule::loop()
 
         float auxCurrent = _inaAux.getCurrent_mA();
         float auxVoltage = _inaAux.getBusVoltage();
-        float auxPower = _inaAux.getPower_mW();
-        int test = _inaAux.getRegister(0x02);
-        logDebugP("AUX Power: %.2f mA at %.2f V, auxPower: %.2f, REG 0x02: %u", auxCurrent, auxVoltage, auxPower, test);
+        logDebugP("AUX Power: %.2f mA at %.2f V", auxCurrent, auxVoltage);
 
         _debugTimer = delayTimerInit();
     }
 #endif
 
+    if (_relayBistableImpulsTimerPwr1 > 0 && delayCheck(_relayBistableImpulsTimerPwr1, OPENKNX_BPS_BISTABLE_IMPULSE_LENGTH))
+    {
+        pwr1RelayCoilsOff();
+        _relayBistableImpulsTimerPwr1 = 0;
+    }
+
+    if (_relayBistableImpulsTimerPwr2 > 0 && delayCheck(_relayBistableImpulsTimerPwr2, OPENKNX_BPS_BISTABLE_IMPULSE_LENGTH))
+    {
+        pwr2RelayCoilsOff();
+        _relayBistableImpulsTimerPwr2 = 0;
+    }
+
+    float busVoltage = _inaKnx.getBusVoltage_mV();
+    bool busOk = busVoltage > POWER_OK_THRESHOLD_VOLTAGE * 1000;
+    if (_busOk != busOk)
+    {
+        _busOk = busOk;
+        openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_BUS, _busOk ? !OPENKNX_BPS_STATUS_ACTIVE_ON : OPENKNX_BPS_STATUS_ACTIVE_ON);
+    }
+
+    float totalCurrent = _inaKnx.getCurrent_mA() + _inaAux.getCurrent_mA();
+    bool currentOk = totalCurrent < CURRENT_THRESHOLD_MA;
+    if (_currentOk != currentOk)
+    {
+        _currentOk = currentOk;
+        openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_MAX, _currentOk ? !OPENKNX_BPS_STATUS_ACTIVE_ON : OPENKNX_BPS_STATUS_ACTIVE_ON);
+    }
+
     if (ParamBPS_BusVoltageChangeSend)
     {
-        float busVoltage = _inaKnx.getBusVoltage_mV();
         if (abs(_lastBusVoltageSent - busVoltage) > VOLTAGE_MIN_DIFFERENCE ||
             ParamBPS_BusVoltageCyclicTimeMS > 0 && delayCheck(_busVoltageSentTimer, ParamBPS_BusVoltageCyclicTimeMS))
         {
@@ -218,6 +340,58 @@ void BusPowerSupplyModule::loop()
     }
 }
 
+void BusPowerSupplyModule::pwr1On()
+{
+    logDebugP("Turn PWR1 on");
+
+    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR1_SWITCH_OFF_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR1_SWITCH_ON_PIN, OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+    _relayBistableImpulsTimerPwr1 = delayTimerInit();
+}
+
+void BusPowerSupplyModule::pwr1Off()
+{
+    logDebugP("Turn PWR1 off");
+
+    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR1_SWITCH_ON_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR1_SWITCH_OFF_PIN, OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+    _relayBistableImpulsTimerPwr1 = delayTimerInit();
+}
+
+void BusPowerSupplyModule::pwr2On()
+{
+    logDebugP("Turn PWR2 on");
+
+    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR2_SWITCH_OFF_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR2_SWITCH_ON_PIN, OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+    _relayBistableImpulsTimerPwr2 = delayTimerInit();
+}
+
+void BusPowerSupplyModule::pwr2Off()
+{
+    logDebugP("Turn PWR2 off");
+
+    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR2_SWITCH_ON_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR2_SWITCH_OFF_PIN, OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+    _relayBistableImpulsTimerPwr2 = delayTimerInit();
+}
+
+void BusPowerSupplyModule::pwr1RelayCoilsOff()
+{
+    logDebugP("Turn both PWR1 relay coils off");
+
+    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR1_SWITCH_ON_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR1_SWITCH_OFF_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+}
+
+void BusPowerSupplyModule::pwr2RelayCoilsOff()
+{
+    logDebugP("Turn both PWR2 relay coils off");
+
+    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR2_SWITCH_ON_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR2_SWITCH_OFF_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
+}
+
 void BusPowerSupplyModule::readFlash(const uint8_t *data, const uint16_t size)
 {
     if (size == 0)
@@ -277,6 +451,26 @@ bool BusPowerSupplyModule::processCommand(const std::string cmd, bool diagnoseKo
     if (cmd.substr(0, 2) != "bs")
         return false;
 
+    if (cmd.length() == 10 && cmd.substr(3, 7) == "pwr1 on")
+    {
+        pwr1On();
+        return true;
+    }
+    else if (cmd.length() == 11 && cmd.substr(3, 8) == "pwr1 off")
+    {
+        pwr1Off();
+        return true;
+    }
+    else if (cmd.length() == 10 && cmd.substr(3, 7) == "pwr2 on")
+    {
+        pwr2On();
+        return true;
+    }
+    else if (cmd.length() == 11 && cmd.substr(3, 8) == "pwr2 off")
+    {
+        pwr2Off();
+        return true;
+    }
 
     // Commands starting with ba are our diagnose commands
     logInfoP("ba (BusPowerSupply) command with bad args");

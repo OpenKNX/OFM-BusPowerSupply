@@ -20,6 +20,9 @@
 #define BUS_LOAD_UPDATE_RATE 1000
 #define BUS_LOAD_MAX_BYTES_PER_SECOND 800
 
+#define POWER_OK_THRESHOLD_VOLTAGE 28
+#define CURRENT_THRESHOLD_MA 1280
+
 class BusPowerSupplyModule : public OpenKNX::Module
 {
   public:
@@ -47,12 +50,26 @@ class BusPowerSupplyModule : public OpenKNX::Module
     void runTestMode();
 
   private:
+    void pwr1On();
+    void pwr1Off();
+    void pwr2On();
+    void pwr2Off();
+    void pwr1RelayCoilsOff();
+    void pwr2RelayCoilsOff();
+
     INA226 _inaKnx = INA226(OPENKNX_BPS_CURRENT_KNX_INA_ADDR, &OPENKNX_GPIO_WIRE);
     INA226 _inaAux = INA226(OPENKNX_BPS_CURRENT_AUX_INA_ADDR, &OPENKNX_GPIO_WIRE);
 
 #ifdef OPENKNX_BPS_TEMPSENS_ADDR
     Generic_LM75_9_to_12Bit_OneShot _temperature = Generic_LM75_9_to_12Bit_OneShot(&OPENKNX_GPIO_WIRE, OPENKNX_BPS_TEMPSENS_ADDR);
 #endif
+
+    uint8_t _pwrActive = 0;
+    bool _pwrErrorLogged = false;
+    bool _pwr1Ok = false;
+    bool _pwr2Ok = false;
+    bool _busOk = true;
+    bool _currentOk = true;
 
     float _lastBusVoltageSent = 0;
     float _lastBusCurrentSent = 0;
@@ -70,6 +87,9 @@ class BusPowerSupplyModule : public OpenKNX::Module
     uint32_t _busLoadUpdateTimer = 0;
     uint32_t _rxLastBusLoadTime;
     uint32_t _rxLastBusBytes;
+
+    uint32_t _relayBistableImpulsTimerPwr1 = 0;
+    uint32_t _relayBistableImpulsTimerPwr2 = 0;
 
     uint32_t _debugTimer = 0;
 };
