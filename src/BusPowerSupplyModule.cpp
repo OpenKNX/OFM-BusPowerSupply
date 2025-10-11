@@ -286,7 +286,7 @@ void BusPowerSupplyModule::loop()
     if (ParamBPS_BusVoltageChangeSend)
     {
         float busVoltageDifference = abs(_lastBusVoltageSent - busVoltage);
-        if (_lastBusVoltageSent * ParamBPS_BusVoltageSendMinChangePercent / 100.0f > busVoltageDifference ||
+        if (busVoltageDifference > _lastBusVoltageSent * ParamBPS_BusVoltageSendMinChangePercent / 100.0f ||
             busVoltageDifference > ParamBPS_BusVoltageSendMinChangeAbsolute ||
             ParamBPS_BusVoltageSendCyclicTimeMS > 0 && delayCheck(_busVoltageSendTimer, ParamBPS_BusVoltageSendCyclicTimeMS))
         {
@@ -300,7 +300,7 @@ void BusPowerSupplyModule::loop()
     {
         float busCurrent = _inaKnx.getCurrent_mA();
         float busCurrentDifference = abs(_lastBusCurrentSent - busCurrent);
-        if (_lastBusCurrentSent * ParamBPS_BusCurrentSendMinChangePercent / 100.0f > busCurrentDifference ||
+        if (busCurrentDifference > _lastBusCurrentSent * ParamBPS_BusCurrentSendMinChangePercent / 100.0f ||
             busCurrentDifference > ParamBPS_BusCurrentSendMinChangeAbsolute ||
             ParamBPS_BusCurrentSendCyclicTimeMS > 0 && delayCheck(_busCurrentSendTimer, ParamBPS_BusCurrentSendCyclicTimeMS))
         {
@@ -316,7 +316,7 @@ void BusPowerSupplyModule::loop()
         {
             float busLoad = estimateBusLoad();
             float busLoadDifference = abs(_lastBusLoadSent - busLoad);
-            if (_lastBusLoadSent * ParamBPS_BusLoadSendMinChangePercent / 100.0f > busLoadDifference ||
+            if (busLoadDifference > _lastBusLoadSent * ParamBPS_BusLoadSendMinChangePercent / 100.0f ||
                 busLoadDifference > ParamBPS_BusLoadSendMinChangeAbsolute ||
                 ParamBPS_BusLoadSendCyclicTimeMS > 0 && delayCheck(_busLoadSendTimer, ParamBPS_BusLoadSendCyclicTimeMS))
             {
@@ -331,7 +331,7 @@ void BusPowerSupplyModule::loop()
     {
         float auxVoltage = _inaKnx.getBusVoltage_mV();
         float auxVoltageDifference = abs(_lastAuxVoltageSent - auxVoltage);
-        if (_lastAuxVoltageSent * ParamBPS_AuxVoltageSendMinChangePercent / 100.0f > auxVoltageDifference ||
+        if (auxVoltageDifference > _lastAuxVoltageSent * ParamBPS_AuxVoltageSendMinChangePercent / 100.0f ||
             auxVoltageDifference > ParamBPS_AuxVoltageSendMinChangeAbsolute ||
             ParamBPS_AuxVoltageSendCyclicTimeMS > 0 && delayCheck(_auxVoltageSendTimer, ParamBPS_AuxVoltageSendCyclicTimeMS))
         {
@@ -345,7 +345,7 @@ void BusPowerSupplyModule::loop()
     {
         float auxCurrent = _inaKnx.getCurrent_mA();
         float auxCurrentDifference = abs(_lastAuxCurrentSent - auxCurrent);
-        if (_lastAuxCurrentSent * ParamBPS_AuxCurrentSendMinChangePercent / 100.0f > auxCurrentDifference ||
+        if (auxCurrentDifference > _lastAuxCurrentSent * ParamBPS_AuxCurrentSendMinChangePercent / 100.0f ||
             auxCurrentDifference > ParamBPS_AuxCurrentSendMinChangeAbsolute ||
             ParamBPS_AuxCurrentSendCyclicTimeMS > 0 && delayCheck(_auxCurrentSendTimer, ParamBPS_AuxCurrentSendCyclicTimeMS))
         {
@@ -359,7 +359,7 @@ void BusPowerSupplyModule::loop()
     {
         float temperature = _temperature.readTemperatureC();
         float temperatureDifference = abs(_lastTemperatureSent - temperature);
-        if (_lastTemperatureSent * ParamBPS_TemperatureSendMinChangePercent / 100.0f > temperatureDifference ||
+        if (temperatureDifference > _lastTemperatureSent * ParamBPS_TemperatureSendMinChangePercent / 100.0f ||
             temperatureDifference > ParamBPS_TemperatureSendMinChangeAbsolute ||
             ParamBPS_TemperatureSendCyclicTimeMS > 0 && delayCheck(_temperaturSendTimer, ParamBPS_TemperatureSendCyclicTimeMS))
         {
