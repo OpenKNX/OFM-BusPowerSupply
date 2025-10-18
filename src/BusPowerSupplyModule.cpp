@@ -61,53 +61,49 @@ void BusPowerSupplyModule::setup(bool configured)
 
     analogReadResolution(12);
 
-    if (_inaKnx.begin())
+    if (_inaKnx.begin(OPENKNX_BPS_CURRENT_KNX_INA_ADDR, &OPENKNX_GPIO_WIRE))
     {
-        logDebugP("KNX INA226 setup done with address %u", _inaKnx.getAddress());
+        logDebugP("KNX INA238 setup done with address %u", OPENKNX_BPS_CURRENT_KNX_INA_ADDR);
         logIndentUp();
 
-        uint32_t result = _inaKnx.setMaxCurrentShunt(3, OPENKNX_BPS_CURRENT_KNX_INA_SHUNT);
-        if (result != 0)
-            logDebugP("KNX INA226 setMaxCurrentShunt failed with error code %u", result);
-        _inaKnx.setAverage(INA226_16_SAMPLES);
-        _inaKnx.setModeShuntContinuous();
+        _inaKnx.setShunt(OPENKNX_BPS_CURRENT_KNX_INA_SHUNT, 3);
+        _inaKnx.setAveragingCount(INA2XX_COUNT_16);
+        _inaKnx.setMode(INA2XX_MODE_CONTINUOUS);
 
 #ifdef OPENKNX_DEBUG
         delay(1000);
         logDebugP("getMode %u", _inaKnx.getMode());
-        logDebugP("isCalibrated %u", _inaKnx.isCalibrated());
-        logDebugP("getCurrentLSB %.4f", _inaKnx.getCurrentLSB());
-        logDebugP("getShunt %.4f", _inaKnx.getShunt());
-        logDebugP("getMaxCurrent %.4f", _inaKnx.getMaxCurrent());
+        // logDebugP("isCalibrated %u", _inaKnx.isCalibrated());
+        // logDebugP("getCurrentLSB %.4f", _inaKnx.getCurrentLSB());
+        // logDebugP("getShunt %.4f", _inaKnx.getShunt());
+        // logDebugP("getMaxCurrent %.4f", _inaKnx.getMaxCurrent());
 #endif
         logIndentDown();
     }
     else
-        logDebugP("KNX INA226 not found at address %u", _inaKnx.getAddress());
+        logDebugP("KNX INA238 not found at address %u", OPENKNX_BPS_CURRENT_KNX_INA_ADDR);
 
-    if (_inaAux.begin())
+    if (_inaAux.begin(OPENKNX_BPS_CURRENT_AUX_INA_ADDR, &OPENKNX_GPIO_WIRE))
     {
-        logDebugP("AUX INA226 setup done with address %u", _inaAux.getAddress());
+        logDebugP("AUX INA238 setup done with address %u", OPENKNX_BPS_CURRENT_AUX_INA_ADDR);
         logIndentUp();
 
-        uint32_t result = _inaAux.setMaxCurrentShunt(3, OPENKNX_BPS_CURRENT_AUX_INA_SHUNT);
-        if (result != 0)
-            logDebugP("AUX INA226 setMaxCurrentShunt failed with error code %u", result);
-        _inaAux.setAverage(INA226_16_SAMPLES);
-        _inaAux.setModeShuntContinuous();
+        _inaAux.setShunt(OPENKNX_BPS_CURRENT_AUX_INA_SHUNT, 3);
+        _inaKnx.setAveragingCount(INA2XX_COUNT_16);
+        _inaAux.setMode(INA2XX_MODE_CONTINUOUS);
 
 #ifdef OPENKNX_DEBUG
         delay(1000);
         logDebugP("getMode %u", _inaAux.getMode());
-        logDebugP("isCalibrated %u", _inaAux.isCalibrated());
-        logDebugP("getCurrentLSB %.4f", _inaAux.getCurrentLSB());
-        logDebugP("getShunt %.4f", _inaAux.getShunt());
-        logDebugP("getMaxCurrent %.4f", _inaAux.getMaxCurrent());
+        // logDebugP("isCalibrated %u", _inaAux.isCalibrated());
+        // logDebugP("getCurrentLSB %.4f", _inaAux.getCurrentLSB());
+        // logDebugP("getShunt %.4f", _inaAux.getShunt());
+        // logDebugP("getMaxCurrent %.4f", _inaAux.getMaxCurrent());
 #endif
         logIndentDown();
     }
     else
-        logDebugP("AUX INA226 not found at address %u", _inaAux.getAddress());
+        logDebugP("AUX INA226 not found at address %u", OPENKNX_BPS_CURRENT_AUX_INA_ADDR);
 }
 
 float BusPowerSupplyModule::estimateBusLoad()
@@ -232,11 +228,11 @@ void BusPowerSupplyModule::loop()
         logDebugP("PWR1 Voltage: %.2f V, PWR2 Voltage: %.2f V", pwr1Voltage, pwr2Voltage);
 
         float busCurrent = _inaKnx.getCurrent_mA();
-        float busVoltage = _inaKnx.getBusVoltage();
+        float busVoltage = _inaKnx.getBusVoltage_V();
         logDebugP("KNX Power: %.2f mA at %.2f V", busCurrent, busVoltage);
 
         float auxCurrent = _inaAux.getCurrent_mA();
-        float auxVoltage = _inaAux.getBusVoltage();
+        float auxVoltage = _inaAux.getBusVoltage_V();
         logDebugP("AUX Power: %.2f mA at %.2f V", auxCurrent, auxVoltage);
 
         _debugTimer = delayTimerInit();
@@ -255,8 +251,8 @@ void BusPowerSupplyModule::loop()
         _relayBistableImpulsTimerPwr2 = 0;
     }
 
-    float busVoltage = _inaKnx.getBusVoltage_mV();
-    bool busOk = busVoltage > POWER_OK_THRESHOLD_VOLTAGE * 1000;
+    float busVoltage = _inaKnx.getBusVoltage_V();
+    bool busOk = busVoltage > POWER_OK_THRESHOLD_VOLTAGE;
     if (_busOk != busOk)
     {
         _busOk = busOk;
@@ -353,7 +349,7 @@ void BusPowerSupplyModule::loop()
 
     if (ParamBPS_AuxVoltageChangeSend)
     {
-        float auxVoltage = _inaKnx.getBusVoltage_mV();
+        float auxVoltage = _inaKnx.getBusVoltage_V() * 1000;
         float auxVoltageDifference = abs(_lastAuxVoltageSent - auxVoltage);
         if (_lastAuxVoltageSent > 0 &&
             auxVoltageDifference >= _lastAuxVoltageSent * ParamBPS_AuxVoltageSendMinChangePercent / 100.0f &&

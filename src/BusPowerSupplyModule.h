@@ -2,7 +2,7 @@
 #include "OpenKNX.h"
 #include "hardware.h"
 #include "knxprod.h"
-#include "INA226.h"
+#include <Adafruit_INA238.h>
 #ifdef OPENKNX_BPS_TEMPSENS_ADDR
   #include <Temperature_LM75_Derived.h>
 #endif
@@ -52,8 +52,8 @@ class BusPowerSupplyModule : public OpenKNX::Module
     void pwr1RelayCoilsOff();
     void pwr2RelayCoilsOff();
 
-    INA226 _inaKnx = INA226(OPENKNX_BPS_CURRENT_KNX_INA_ADDR, &OPENKNX_GPIO_WIRE);
-    INA226 _inaAux = INA226(OPENKNX_BPS_CURRENT_AUX_INA_ADDR, &OPENKNX_GPIO_WIRE);
+    Adafruit_INA238 _inaKnx = Adafruit_INA238();
+    Adafruit_INA238 _inaAux = Adafruit_INA238();
 
 #ifdef OPENKNX_BPS_TEMPSENS_ADDR
     Generic_LM75_9_to_12Bit_OneShot _temperature = Generic_LM75_9_to_12Bit_OneShot(&OPENKNX_GPIO_WIRE, OPENKNX_BPS_TEMPSENS_ADDR);
