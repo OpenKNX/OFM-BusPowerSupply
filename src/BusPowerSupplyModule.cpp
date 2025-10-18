@@ -286,9 +286,17 @@ void BusPowerSupplyModule::loop()
     if (ParamBPS_BusVoltageChangeSend)
     {
         float busVoltageDifference = abs(_lastBusVoltageSent - busVoltage);
-        if (busVoltageDifference > _lastBusVoltageSent * ParamBPS_BusVoltageSendMinChangePercent / 100.0f ||
-            busVoltageDifference > ParamBPS_BusVoltageSendMinChangeAbsolute ||
-            ParamBPS_BusVoltageSendCyclicTimeMS > 0 && delayCheck(_busVoltageSendTimer, ParamBPS_BusVoltageSendCyclicTimeMS))
+        if (_lastBusVoltageSent > 0 &&
+            busVoltageDifference >= _lastBusVoltageSent * ParamBPS_BusVoltageSendMinChangePercent / 100.0f &&
+            busVoltageDifference >= ParamBPS_BusVoltageSendMinChangeAbsolute)
+        {
+            KoBPS_BusVoltage.value(busVoltage, DPT_Value_Volt);
+            _lastBusVoltageSent = busVoltage;
+        }
+        else
+            KoBPS_BusVoltage.valueNoSend(busVoltage, DPT_Value_Volt);
+
+        if (ParamBPS_BusVoltageSendCyclicTimeMS > 0 && delayCheck(_busVoltageSendTimer, ParamBPS_BusVoltageSendCyclicTimeMS))
         {
             KoBPS_BusVoltage.value(busVoltage, DPT_Value_Volt);
             _lastBusVoltageSent = busVoltage;
@@ -300,9 +308,17 @@ void BusPowerSupplyModule::loop()
     {
         float busCurrent = _inaKnx.getCurrent_mA();
         float busCurrentDifference = abs(_lastBusCurrentSent - busCurrent);
-        if (busCurrentDifference > _lastBusCurrentSent * ParamBPS_BusCurrentSendMinChangePercent / 100.0f ||
-            busCurrentDifference > ParamBPS_BusCurrentSendMinChangeAbsolute ||
-            ParamBPS_BusCurrentSendCyclicTimeMS > 0 && delayCheck(_busCurrentSendTimer, ParamBPS_BusCurrentSendCyclicTimeMS))
+        if (_lastBusCurrentSent > 0 &&
+            busCurrentDifference >= _lastBusCurrentSent * ParamBPS_BusCurrentSendMinChangePercent / 100.0f &&
+            busCurrentDifference >= ParamBPS_BusCurrentSendMinChangeAbsolute)
+        {
+            KoBPS_BusCurrent.value(busCurrent, DPT_Value_Volt);
+            _lastBusCurrentSent = busCurrent;
+        }
+        else
+            KoBPS_BusCurrent.valueNoSend(busCurrent, DPT_Value_Volt);
+
+        if (ParamBPS_BusCurrentSendCyclicTimeMS > 0 && delayCheck(_busCurrentSendTimer, ParamBPS_BusCurrentSendCyclicTimeMS))
         {
             KoBPS_BusCurrent.value(busCurrent, DPT_Value_Volt);
             _lastBusCurrentSent = busCurrent;
@@ -316,9 +332,17 @@ void BusPowerSupplyModule::loop()
         {
             float busLoad = estimateBusLoad();
             float busLoadDifference = abs(_lastBusLoadSent - busLoad);
-            if (busLoadDifference > _lastBusLoadSent * ParamBPS_BusLoadSendMinChangePercent / 100.0f ||
-                busLoadDifference > ParamBPS_BusLoadSendMinChangeAbsolute ||
-                ParamBPS_BusLoadSendCyclicTimeMS > 0 && delayCheck(_busLoadSendTimer, ParamBPS_BusLoadSendCyclicTimeMS))
+            if (_lastBusLoadSent > 0 &&
+                busLoadDifference >= _lastBusLoadSent * ParamBPS_BusLoadSendMinChangePercent / 100.0f &&
+                busLoadDifference >= ParamBPS_BusLoadSendMinChangeAbsolute)
+            {
+                KoBPS_BusLoad.value(busLoad, DPT_Scaling);
+                _lastBusLoadSent = busLoad;
+            }
+            else
+                KoBPS_BusLoad.valueNoSend(busLoad, DPT_Scaling);
+
+            if (ParamBPS_BusLoadSendCyclicTimeMS > 0 && delayCheck(_busLoadSendTimer, ParamBPS_BusLoadSendCyclicTimeMS))
             {
                 KoBPS_BusLoad.value(busLoad, DPT_Scaling);
                 _lastBusLoadSent = busLoad;
@@ -331,9 +355,17 @@ void BusPowerSupplyModule::loop()
     {
         float auxVoltage = _inaKnx.getBusVoltage_mV();
         float auxVoltageDifference = abs(_lastAuxVoltageSent - auxVoltage);
-        if (auxVoltageDifference > _lastAuxVoltageSent * ParamBPS_AuxVoltageSendMinChangePercent / 100.0f ||
-            auxVoltageDifference > ParamBPS_AuxVoltageSendMinChangeAbsolute ||
-            ParamBPS_AuxVoltageSendCyclicTimeMS > 0 && delayCheck(_auxVoltageSendTimer, ParamBPS_AuxVoltageSendCyclicTimeMS))
+        if (_lastAuxVoltageSent > 0 &&
+            auxVoltageDifference >= _lastAuxVoltageSent * ParamBPS_AuxVoltageSendMinChangePercent / 100.0f &&
+            auxVoltageDifference >= ParamBPS_AuxVoltageSendMinChangeAbsolute)
+        {
+            KoBPS_AuxVoltage.value(auxVoltage, DPT_Value_Volt);
+            _lastAuxVoltageSent = auxVoltage;
+        }
+        else
+            KoBPS_AuxVoltage.valueNoSend(auxVoltage, DPT_Value_Volt);
+
+        if (ParamBPS_AuxVoltageSendCyclicTimeMS > 0 && delayCheck(_auxVoltageSendTimer, ParamBPS_AuxVoltageSendCyclicTimeMS))
         {
             KoBPS_AuxVoltage.value(auxVoltage, DPT_Value_Volt);
             _lastAuxVoltageSent = auxVoltage;
@@ -345,9 +377,17 @@ void BusPowerSupplyModule::loop()
     {
         float auxCurrent = _inaKnx.getCurrent_mA();
         float auxCurrentDifference = abs(_lastAuxCurrentSent - auxCurrent);
-        if (auxCurrentDifference > _lastAuxCurrentSent * ParamBPS_AuxCurrentSendMinChangePercent / 100.0f ||
-            auxCurrentDifference > ParamBPS_AuxCurrentSendMinChangeAbsolute ||
-            ParamBPS_AuxCurrentSendCyclicTimeMS > 0 && delayCheck(_auxCurrentSendTimer, ParamBPS_AuxCurrentSendCyclicTimeMS))
+        if (_lastAuxCurrentSent > 0 &&
+            auxCurrentDifference >= _lastAuxCurrentSent * ParamBPS_AuxCurrentSendMinChangePercent / 100.0f &&
+            auxCurrentDifference >= ParamBPS_AuxCurrentSendMinChangeAbsolute)
+        {
+            KoBPS_AuxCurrent.value(auxCurrent, DPT_Value_Volt);
+            _lastAuxCurrentSent = auxCurrent;
+        }
+        else
+            KoBPS_AuxCurrent.valueNoSend(auxCurrent, DPT_Value_Volt);
+
+        if (ParamBPS_AuxCurrentSendCyclicTimeMS > 0 && delayCheck(_auxCurrentSendTimer, ParamBPS_AuxCurrentSendCyclicTimeMS))
         {
             KoBPS_AuxCurrent.value(auxCurrent, DPT_Value_Volt);
             _lastAuxCurrentSent = auxCurrent;
@@ -359,9 +399,18 @@ void BusPowerSupplyModule::loop()
     {
         float temperature = _temperature.readTemperatureC();
         float temperatureDifference = abs(_lastTemperatureSent - temperature);
-        if (temperatureDifference > _lastTemperatureSent * ParamBPS_TemperatureSendMinChangePercent / 100.0f ||
-            temperatureDifference > ParamBPS_TemperatureSendMinChangeAbsolute ||
-            ParamBPS_TemperatureSendCyclicTimeMS > 0 && delayCheck(_temperaturSendTimer, ParamBPS_TemperatureSendCyclicTimeMS))
+        if (_lastTemperatureSent > 0 &&
+            temperatureDifference >= _lastTemperatureSent * ParamBPS_TemperatureSendMinChangePercent / 100.0f &&
+            temperatureDifference >= ParamBPS_TemperatureSendMinChangeAbsolute)
+        {
+            KoBPS_Temperature.value(temperature, DPT_Value_Temp);
+            _lastTemperatureSent = temperature;
+            _temperaturSendTimer = delayTimerInit();
+        }
+        else
+            KoBPS_Temperature.valueNoSend(temperature, DPT_Value_Temp);
+
+        if (ParamBPS_TemperatureSendCyclicTimeMS > 0 && delayCheck(_temperaturSendTimer, ParamBPS_TemperatureSendCyclicTimeMS))
         {
             KoBPS_Temperature.value(temperature, DPT_Value_Temp);
             _lastTemperatureSent = temperature;
