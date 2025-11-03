@@ -16,7 +16,10 @@
 #define BUS_LOAD_MAX_BYTES_PER_SECOND 800
 
 #define POWER_OK_THRESHOLD_VOLTAGE 28
-#define CURRENT_THRESHOLD_MA 1280
+#define CURRENT_MAX_THRESHOLD_MA 1280
+#define CURRENT_OVERLOAD_THRESHOLD_MA 2500
+
+#define CURRENT_OVERLOAD_TIMEOUT_MS 5000
 
 class BusPowerSupplyModule : public OpenKNX::Module
 {
@@ -65,6 +68,8 @@ class BusPowerSupplyModule : public OpenKNX::Module
     bool _pwr2Ok = false;
     bool _busOk = true;
     bool _currentOk = true;
+    bool _overcurrent = false;
+    uint32_t _overcurrentStarted = 0;
 
     float _lastPowerSupply1Sent = 0;
     float _lastPowerSupply2Sent = 0;

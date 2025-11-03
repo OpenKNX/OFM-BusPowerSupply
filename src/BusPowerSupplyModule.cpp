@@ -196,28 +196,31 @@ void BusPowerSupplyModule::loop()
     }
     else if (_pwrActive == 0)
     {
-        if (_pwr1Ok)
+        if (!_overcurrent || delayCheck(_overcurrentStarted, CURRENT_OVERLOAD_TIMEOUT_MS))
         {
-            pwr2Off();
-            pwr1On();
-            _pwrActive = 1;
-            _pwrErrorLogged = false;
-            logInfoP("Power supply started, PWR1 available, switching to PWR1");
-        }
-        else if (_pwr2Ok)
-        {
-            pwr1Off();
-            pwr2On();
-            _pwrActive = 2;
-            _pwrErrorLogged = false;
-            logInfoP("Power supply started, PWR2 available, switching to PWR2");
-        }
-        else
-        {
-            if (!_pwrErrorLogged)
+            if (_pwr1Ok)
             {
-                _pwrErrorLogged = true;
-                logErrorP("Power supply started, no power supply available!");
+                pwr2Off();
+                pwr1On();
+                _pwrActive = 1;
+                _pwrErrorLogged = false;
+                logInfoP("Power supply started, PWR1 available, switching to PWR1");
+            }
+            else if (_pwr2Ok)
+            {
+                pwr1Off();
+                pwr2On();
+                _pwrActive = 2;
+                _pwrErrorLogged = false;
+                logInfoP("Power supply started, PWR2 available, switching to PWR2");
+            }
+            else
+            {
+                if (!_pwrErrorLogged)
+                {
+                    _pwrErrorLogged = true;
+                    logErrorP("Power supply started, no power supply available!");
+                }
             }
         }
     }
@@ -260,11 +263,21 @@ void BusPowerSupplyModule::loop()
     }
 
     float totalCurrent = _inaKnx.getCurrent_mA() + _inaAux.getCurrent_mA();
-    bool currentOk = totalCurrent < CURRENT_THRESHOLD_MA;
+    bool currentOk = totalCurrent < CURRENT_MAX_THRESHOLD_MA;
     if (_currentOk != currentOk)
     {
         _currentOk = currentOk;
         openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_MAX, _currentOk ? !OPENKNX_BPS_STATUS_ACTIVE_ON : OPENKNX_BPS_STATUS_ACTIVE_ON);
+    }
+
+    if (totalCurrent > CURRENT_OVERLOAD_THRESHOLD_MA)
+    {
+        pwr1Off();
+        pwr2Off();
+        _pwrActive = 0;
+        _overcurrentStarted = delayTimerInit();
+
+        logErrorP("Bus current overload detected: %.2f mA, all power off", totalCurrent);
     }
 
     if (ParamBPS_PowerSupply1SendCyclicTimeMS > 0 && delayCheck(_powerSupply1SendTimer, ParamBPS_PowerSupply1SendCyclicTimeMS))
