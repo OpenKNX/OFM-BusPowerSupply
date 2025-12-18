@@ -43,11 +43,19 @@ void BusPowerSupplyModule::setup(bool configured)
     pwr1RelayCoilsOff();
     openknx.gpio.pinMode(OPENKNX_BPS_PWR1_ALERT_PIN, INPUT);
 
+    pwr1Off();
+    delay(OPENKNX_BPS_BISTABLE_IMPULSE_LENGTH);
+    pwr1RelayCoilsOff();
+
     openknx.gpio.pinMode(OPENKNX_BPS_PWR2_CHECK_PIN, INPUT);
     openknx.gpio.pinMode(OPENKNX_BPS_PWR2_SWITCH_ON_PIN, OUTPUT, true, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
     openknx.gpio.pinMode(OPENKNX_BPS_PWR2_SWITCH_OFF_PIN, OUTPUT, true, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
     pwr2RelayCoilsOff();
     openknx.gpio.pinMode(OPENKNX_BPS_PWR2_ALERT_PIN, INPUT);
+
+    pwr2Off();
+    delay(OPENKNX_BPS_BISTABLE_IMPULSE_LENGTH);
+    pwr2RelayCoilsOff();
 
     openknx.gpio.pinMode(OPENKNX_BPS_STATUS_BUS, OUTPUT, true, !OPENKNX_BPS_STATUS_ACTIVE_ON);
     openknx.gpio.pinMode(OPENKNX_BPS_STATUS_TMP, OUTPUT, true, !OPENKNX_BPS_STATUS_ACTIVE_ON);
@@ -228,7 +236,7 @@ void BusPowerSupplyModule::loop()
 #ifdef OPENKNX_DEBUG
     if (delayCheck(_debugTimer, 1000))
     {
-        logDebugP("PWR1 Voltage: %.2f V, PWR2 Voltage: %.2f V", pwr1Voltage, pwr2Voltage);
+        logDebugP("PWR1 Voltage: %.2f V (%s), PWR2 Voltage: %.2f V (%s), active: %d", pwr1Voltage, _pwr1Ok ? "OK" : "NOT OK", pwr2Voltage, _pwr2Ok ? "OK" : "NOT OK", _pwrActive);
 
         float busCurrent = _inaKnx.getCurrent_mA();
         float busVoltage = _inaKnx.getBusVoltage_V();
