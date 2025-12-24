@@ -52,8 +52,6 @@ class BusPowerSupplyModule : public OpenKNX::Module
     void pwr1Off();
     void pwr2On();
     void pwr2Off();
-    void pwr1RelayCoilsOff();
-    void pwr2RelayCoilsOff();
 
     Adafruit_INA238 _inaKnx = Adafruit_INA238();
     Adafruit_INA238 _inaAux = Adafruit_INA238();
@@ -91,9 +89,6 @@ class BusPowerSupplyModule : public OpenKNX::Module
     uint32_t _busLoadUpdateTimer = 0;
     uint32_t _rxLastBusLoadTime;
     uint32_t _rxLastBusBytes;
-
-    uint32_t _relayBistableImpulsTimerPwr1 = 0;
-    uint32_t _relayBistableImpulsTimerPwr2 = 0;
 
     uint32_t _debugTimer = 0;
 };

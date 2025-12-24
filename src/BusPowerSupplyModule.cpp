@@ -39,23 +39,11 @@ void BusPowerSupplyModule::setup(bool configured)
 {
     openknx.gpio.pinMode(OPENKNX_BPS_PWR1_CHECK_PIN, INPUT);
     openknx.gpio.pinMode(OPENKNX_BPS_PWR1_SWITCH_ON_PIN, OUTPUT, true, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-    openknx.gpio.pinMode(OPENKNX_BPS_PWR1_SWITCH_OFF_PIN, OUTPUT, true, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-    pwr1RelayCoilsOff();
     openknx.gpio.pinMode(OPENKNX_BPS_PWR1_ALERT_PIN, INPUT);
-
-    pwr1Off();
-    delay(OPENKNX_BPS_BISTABLE_IMPULSE_LENGTH);
-    pwr1RelayCoilsOff();
 
     openknx.gpio.pinMode(OPENKNX_BPS_PWR2_CHECK_PIN, INPUT);
     openknx.gpio.pinMode(OPENKNX_BPS_PWR2_SWITCH_ON_PIN, OUTPUT, true, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-    openknx.gpio.pinMode(OPENKNX_BPS_PWR2_SWITCH_OFF_PIN, OUTPUT, true, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-    pwr2RelayCoilsOff();
     openknx.gpio.pinMode(OPENKNX_BPS_PWR2_ALERT_PIN, INPUT);
-
-    pwr2Off();
-    delay(OPENKNX_BPS_BISTABLE_IMPULSE_LENGTH);
-    pwr2RelayCoilsOff();
 
     openknx.gpio.pinMode(OPENKNX_BPS_STATUS_BUS, OUTPUT, true, !OPENKNX_BPS_STATUS_ACTIVE_ON);
     openknx.gpio.pinMode(OPENKNX_BPS_STATUS_TMP, OUTPUT, true, !OPENKNX_BPS_STATUS_ACTIVE_ON);
@@ -250,18 +238,6 @@ void BusPowerSupplyModule::loop()
     }
 #endif
 
-    if (_relayBistableImpulsTimerPwr1 > 0 && delayCheck(_relayBistableImpulsTimerPwr1, OPENKNX_BPS_BISTABLE_IMPULSE_LENGTH))
-    {
-        pwr1RelayCoilsOff();
-        _relayBistableImpulsTimerPwr1 = 0;
-    }
-
-    if (_relayBistableImpulsTimerPwr2 > 0 && delayCheck(_relayBistableImpulsTimerPwr2, OPENKNX_BPS_BISTABLE_IMPULSE_LENGTH))
-    {
-        pwr2RelayCoilsOff();
-        _relayBistableImpulsTimerPwr2 = 0;
-    }
-
     float busVoltage = _inaKnx.getBusVoltage_V();
     bool busOk = busVoltage > POWER_OK_THRESHOLD_VOLTAGE;
     if (_busOk != busOk)
@@ -439,53 +415,25 @@ void BusPowerSupplyModule::loop()
 void BusPowerSupplyModule::pwr1On()
 {
     logDebugP("Turn PWR1 on");
-
-    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR1_SWITCH_OFF_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
     openknx.gpio.digitalWrite(OPENKNX_BPS_PWR1_SWITCH_ON_PIN, OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-    _relayBistableImpulsTimerPwr1 = delayTimerInit();
 }
 
 void BusPowerSupplyModule::pwr1Off()
 {
     logDebugP("Turn PWR1 off");
-
     openknx.gpio.digitalWrite(OPENKNX_BPS_PWR1_SWITCH_ON_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR1_SWITCH_OFF_PIN, OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-    _relayBistableImpulsTimerPwr1 = delayTimerInit();
 }
 
 void BusPowerSupplyModule::pwr2On()
 {
     logDebugP("Turn PWR2 on");
-
-    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR2_SWITCH_OFF_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
     openknx.gpio.digitalWrite(OPENKNX_BPS_PWR2_SWITCH_ON_PIN, OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-    _relayBistableImpulsTimerPwr2 = delayTimerInit();
 }
 
 void BusPowerSupplyModule::pwr2Off()
 {
     logDebugP("Turn PWR2 off");
-
     openknx.gpio.digitalWrite(OPENKNX_BPS_PWR2_SWITCH_ON_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR2_SWITCH_OFF_PIN, OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-    _relayBistableImpulsTimerPwr2 = delayTimerInit();
-}
-
-void BusPowerSupplyModule::pwr1RelayCoilsOff()
-{
-    logDebugP("Turn both PWR1 relay coils off");
-
-    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR1_SWITCH_ON_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR1_SWITCH_OFF_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-}
-
-void BusPowerSupplyModule::pwr2RelayCoilsOff()
-{
-    logDebugP("Turn both PWR2 relay coils off");
-
-    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR2_SWITCH_ON_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
-    openknx.gpio.digitalWrite(OPENKNX_BPS_PWR2_SWITCH_OFF_PIN, !OPENKNX_BPS_PWR_SWITCH_ACTIVE_ON);
 }
 
 void BusPowerSupplyModule::readFlash(const uint8_t *data, const uint16_t size)
