@@ -21,6 +21,9 @@
 
 #define CURRENT_OVERLOAD_TIMEOUT_MS 5000
 
+#define MAX_CURRENT_SWITCH_PER_SECOND 5
+#define POWER_SUPPLY_SWITCH_RECENT_RESET_MS 1000
+
 class BusPowerSupplyModule : public OpenKNX::Module
 {
   public:
@@ -53,6 +56,8 @@ class BusPowerSupplyModule : public OpenKNX::Module
     void pwr2On();
     void pwr2Off();
 
+    void processSendValue(GroupObject& ko, Dpt dpt, bool send, uint8_t sendMinChangePercent, uint16_t sendMinChangeAbsolute, uint32_t sendCyclicTimeMS, uint32_t& cyclicSendTimer, float& lastSentValue, float currentValue, uint16_t checkMultiply = 1);
+
     Adafruit_INA238 _inaKnx = Adafruit_INA238();
     Adafruit_INA238 _inaAux = Adafruit_INA238();
 
@@ -68,6 +73,8 @@ class BusPowerSupplyModule : public OpenKNX::Module
     bool _currentOk = true;
     bool _overcurrent = false;
     uint32_t _overcurrentStarted = 0;
+    uint8_t _recentPwrSupplySwitches = 0;
+    uint32_t _lastPwrSupplySwitch = 0;
 
     float _lastPowerSupply1Sent = 0;
     float _lastPowerSupply2Sent = 0;
@@ -84,7 +91,7 @@ class BusPowerSupplyModule : public OpenKNX::Module
     uint32_t _busLoadSendTimer = 0;
     uint32_t _auxVoltageSendTimer = 0;
     uint32_t _auxCurrentSendTimer = 0;
-    uint32_t _temperaturSendTimer = 0;
+    uint32_t _temperatureSendTimer = 0;
 
     uint32_t _busLoadUpdateTimer = 0;
     uint32_t _rxLastBusLoadTime;

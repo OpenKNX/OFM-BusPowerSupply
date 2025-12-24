@@ -139,14 +139,19 @@ void BusPowerSupplyModule::loop()
         if (ParamBPS_PowerSupply2ChangeSend)
             KoBPS_PowerSupply2Status.value(pwr2Ok, DPT_Switch);
     }
-
-    // if ((_pwr1Ok || _pwr2Ok) && openknx.common.isSaveTriggered())
-    // {
-    //     openknx.common.restoreSavePin();
-    //     logInfoP("SAVE restored.");
-    // }
     
-    if (_pwrActive == 1 && !_pwr1Ok)
+    if (_recentPwrSupplySwitches > MAX_CURRENT_SWITCH_PER_SECOND &&
+        (_pwrActive == 1 && !_pwr1Ok || _pwrActive == 2 && !_pwr2Ok))
+    {
+        pwr1Off();
+        pwr2Off();
+        _pwrActive = 0;
+        _overcurrent = true;
+        _overcurrentStarted = delayTimerInit();
+
+        logErrorP("Too many power supply switches, all power off");
+    }
+    else if (_pwrActive == 1 && !_pwr1Ok)
     {
         if (_pwr2Ok)
         {
@@ -154,6 +159,10 @@ void BusPowerSupplyModule::loop()
             pwr2On();
             _pwrActive = 2;
             _pwrErrorLogged = false;
+
+            _recentPwrSupplySwitches++;
+            _lastPwrSupplySwitch = delayTimerInit();
+
             logInfoP("PWR1 failed, switched to PWR2");
         }
         else
@@ -176,6 +185,10 @@ void BusPowerSupplyModule::loop()
             pwr1On();
             _pwrActive = 1;
             _pwrErrorLogged = false;
+
+            _recentPwrSupplySwitches++;
+            _lastPwrSupplySwitch = delayTimerInit();
+
             logInfoP("PWR2 failed, switched to PWR1");
         }
         else
@@ -221,24 +234,25 @@ void BusPowerSupplyModule::loop()
         }
     }
 
+    float busVoltage = _inaKnx.getBusVoltage_V();
+    float busCurrent = _inaKnx.getCurrent_mA() / 1000;
+    float auxVoltage = _inaAux.getBusVoltage_V();
+    float auxCurrent = _inaAux.getCurrent_mA() / 1000;
+    float busLoad = estimateBusLoad();
+    float temperature = _temperature.readTemperatureC();
+
 #ifdef OPENKNX_DEBUG
     if (delayCheck(_debugTimer, 1000))
     {
         logDebugP("PWR1 Voltage: %.2f V (%s), PWR2 Voltage: %.2f V (%s), active: %d", pwr1Voltage, _pwr1Ok ? "OK" : "NOT OK", pwr2Voltage, _pwr2Ok ? "OK" : "NOT OK", _pwrActive);
-
-        float busCurrent = _inaKnx.getCurrent_mA();
-        float busVoltage = _inaKnx.getBusVoltage_V();
-        logDebugP("KNX Power: %.2f mA at %.2f V", busCurrent, busVoltage);
-
-        float auxCurrent = _inaAux.getCurrent_mA();
-        float auxVoltage = _inaAux.getBusVoltage_V();
-        logDebugP("AUX Power: %.2f mA at %.2f V", auxCurrent, auxVoltage);
-
+        logDebugP("KNX Power: %.2f mA at %.2f V", busCurrent * 1000, busVoltage);
+        logDebugP("AUX Power: %.2f mA at %.2f V", auxCurrent * 1000, auxVoltage);
+        logDebugP("Bus Load: %.2f %%, Temperature: %.2f °C", busLoad * 100, temperature);
+        
         _debugTimer = delayTimerInit();
     }
 #endif
 
-    float busVoltage = _inaKnx.getBusVoltage_V();
     bool busOk = busVoltage > POWER_OK_THRESHOLD_VOLTAGE;
     if (_busOk != busOk)
     {
@@ -246,22 +260,29 @@ void BusPowerSupplyModule::loop()
         openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_BUS, _busOk ? !OPENKNX_BPS_STATUS_ACTIVE_ON : OPENKNX_BPS_STATUS_ACTIVE_ON);
     }
 
-    float totalCurrent = _inaKnx.getCurrent_mA() + _inaAux.getCurrent_mA();
-    bool currentOk = totalCurrent < CURRENT_MAX_THRESHOLD_MA;
+    float totalCurrentMa = (busCurrent + auxCurrent) * 1000;
+    bool currentOk = totalCurrentMa < CURRENT_MAX_THRESHOLD_MA;
     if (_currentOk != currentOk)
     {
         _currentOk = currentOk;
         openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_MAX, _currentOk ? !OPENKNX_BPS_STATUS_ACTIVE_ON : OPENKNX_BPS_STATUS_ACTIVE_ON);
     }
 
-    if (totalCurrent > CURRENT_OVERLOAD_THRESHOLD_MA)
+    if (totalCurrentMa > CURRENT_OVERLOAD_THRESHOLD_MA)
     {
         pwr1Off();
         pwr2Off();
         _pwrActive = 0;
+        _overcurrent = true;
         _overcurrentStarted = delayTimerInit();
 
-        logErrorP("Bus current overload detected: %.2f mA, all power off", totalCurrent);
+        logErrorP("Bus current overload detected: %.2f mA, all power off", totalCurrentMa);
+    }
+
+    if (_lastPwrSupplySwitch > 0 && delayCheck(_lastPwrSupplySwitch, POWER_SUPPLY_SWITCH_RECENT_RESET_MS))
+    {
+        _lastPwrSupplySwitch = 0;
+        _recentPwrSupplySwitches = 0;
     }
 
     if (ParamBPS_PowerSupply1SendCyclicTimeMS > 0 && delayCheck(_powerSupply1SendTimer, ParamBPS_PowerSupply1SendCyclicTimeMS))
@@ -276,139 +297,39 @@ void BusPowerSupplyModule::loop()
         _powerSupply2SendTimer = delayTimerInit();
     }
 
-    if (ParamBPS_BusVoltageChangeSend)
-    {
-        float busVoltageDifference = abs(_lastBusVoltageSent - busVoltage);
-        if (_lastBusVoltageSent > 0 &&
-            busVoltageDifference >= _lastBusVoltageSent * ParamBPS_BusVoltageSendMinChangePercent / 100.0f &&
-            busVoltageDifference >= ParamBPS_BusVoltageSendMinChangeAbsolute)
-        {
-            KoBPS_BusVoltage.value(busVoltage, DPT_Value_Volt);
-            _lastBusVoltageSent = busVoltage;
-        }
-        else
-            KoBPS_BusVoltage.valueNoSend(busVoltage, DPT_Value_Volt);
+    processSendValue(KoBPS_BusVoltage, DPT_Value_Electric_Potential, ParamBPS_BusVoltageChangeSend, ParamBPS_BusVoltageSendMinChangePercent, ParamBPS_BusVoltageSendMinChangeAbsolute, ParamBPS_BusVoltageSendCyclicTimeMS, _busVoltageSendTimer, _lastBusVoltageSent, busVoltage);
+    processSendValue(KoBPS_BusCurrent, DPT_Value_Electric_Current, ParamBPS_BusCurrentChangeSend, ParamBPS_BusCurrentSendMinChangePercent, ParamBPS_BusCurrentSendMinChangeAbsolute, ParamBPS_BusCurrentSendCyclicTimeMS, _busCurrentSendTimer, _lastBusCurrentSent, busCurrent, 1000);
+    processSendValue(KoBPS_BusLoad, DPT_Scaling, ParamBPS_BusLoadChangeSend, ParamBPS_BusLoadSendMinChangePercent, ParamBPS_BusLoadSendMinChangeAbsolute, ParamBPS_BusLoadSendCyclicTimeMS, _busLoadSendTimer, _lastBusLoadSent, busLoad);
 
-        if (ParamBPS_BusVoltageSendCyclicTimeMS > 0 && delayCheck(_busVoltageSendTimer, ParamBPS_BusVoltageSendCyclicTimeMS))
-        {
-            KoBPS_BusVoltage.value(busVoltage, DPT_Value_Volt);
-            _lastBusVoltageSent = busVoltage;
-            _busVoltageSendTimer = delayTimerInit();
-        }
-    }
-
-    if (ParamBPS_BusCurrentChangeSend)
-    {
-        float busCurrent = _inaKnx.getCurrent_mA();
-        float busCurrentDifference = abs(_lastBusCurrentSent - busCurrent);
-        if (_lastBusCurrentSent > 0 &&
-            busCurrentDifference >= _lastBusCurrentSent * ParamBPS_BusCurrentSendMinChangePercent / 100.0f &&
-            busCurrentDifference >= ParamBPS_BusCurrentSendMinChangeAbsolute)
-        {
-            KoBPS_BusCurrent.value(busCurrent, DPT_Value_Volt);
-            _lastBusCurrentSent = busCurrent;
-        }
-        else
-            KoBPS_BusCurrent.valueNoSend(busCurrent, DPT_Value_Volt);
-
-        if (ParamBPS_BusCurrentSendCyclicTimeMS > 0 && delayCheck(_busCurrentSendTimer, ParamBPS_BusCurrentSendCyclicTimeMS))
-        {
-            KoBPS_BusCurrent.value(busCurrent, DPT_Value_Volt);
-            _lastBusCurrentSent = busCurrent;
-            _busCurrentSendTimer = delayTimerInit();
-        }
-    }
-
-    if (ParamBPS_BusLoadChangeSend)
-    {
-        if (delayCheck(_busLoadSendTimer, BUS_LOAD_UPDATE_RATE))
-        {
-            float busLoad = estimateBusLoad();
-            float busLoadDifference = abs(_lastBusLoadSent - busLoad);
-            if (_lastBusLoadSent > 0 &&
-                busLoadDifference >= _lastBusLoadSent * ParamBPS_BusLoadSendMinChangePercent / 100.0f &&
-                busLoadDifference >= ParamBPS_BusLoadSendMinChangeAbsolute)
-            {
-                KoBPS_BusLoad.value(busLoad, DPT_Scaling);
-                _lastBusLoadSent = busLoad;
-            }
-            else
-                KoBPS_BusLoad.valueNoSend(busLoad, DPT_Scaling);
-
-            if (ParamBPS_BusLoadSendCyclicTimeMS > 0 && delayCheck(_busLoadSendTimer, ParamBPS_BusLoadSendCyclicTimeMS))
-            {
-                KoBPS_BusLoad.value(busLoad, DPT_Scaling);
-                _lastBusLoadSent = busLoad;
-                _busLoadSendTimer = delayTimerInit();
-            }
-        }
-    }
-
-    if (ParamBPS_AuxVoltageChangeSend)
-    {
-        float auxVoltage = _inaKnx.getBusVoltage_V() * 1000;
-        float auxVoltageDifference = abs(_lastAuxVoltageSent - auxVoltage);
-        if (_lastAuxVoltageSent > 0 &&
-            auxVoltageDifference >= _lastAuxVoltageSent * ParamBPS_AuxVoltageSendMinChangePercent / 100.0f &&
-            auxVoltageDifference >= ParamBPS_AuxVoltageSendMinChangeAbsolute)
-        {
-            KoBPS_AuxVoltage.value(auxVoltage, DPT_Value_Volt);
-            _lastAuxVoltageSent = auxVoltage;
-        }
-        else
-            KoBPS_AuxVoltage.valueNoSend(auxVoltage, DPT_Value_Volt);
-
-        if (ParamBPS_AuxVoltageSendCyclicTimeMS > 0 && delayCheck(_auxVoltageSendTimer, ParamBPS_AuxVoltageSendCyclicTimeMS))
-        {
-            KoBPS_AuxVoltage.value(auxVoltage, DPT_Value_Volt);
-            _lastAuxVoltageSent = auxVoltage;
-            _auxVoltageSendTimer = delayTimerInit();
-        }
-    }
-
-    if (ParamBPS_AuxCurrentChangeSend)
-    {
-        float auxCurrent = _inaKnx.getCurrent_mA();
-        float auxCurrentDifference = abs(_lastAuxCurrentSent - auxCurrent);
-        if (_lastAuxCurrentSent > 0 &&
-            auxCurrentDifference >= _lastAuxCurrentSent * ParamBPS_AuxCurrentSendMinChangePercent / 100.0f &&
-            auxCurrentDifference >= ParamBPS_AuxCurrentSendMinChangeAbsolute)
-        {
-            KoBPS_AuxCurrent.value(auxCurrent, DPT_Value_Volt);
-            _lastAuxCurrentSent = auxCurrent;
-        }
-        else
-            KoBPS_AuxCurrent.valueNoSend(auxCurrent, DPT_Value_Volt);
-
-        if (ParamBPS_AuxCurrentSendCyclicTimeMS > 0 && delayCheck(_auxCurrentSendTimer, ParamBPS_AuxCurrentSendCyclicTimeMS))
-        {
-            KoBPS_AuxCurrent.value(auxCurrent, DPT_Value_Volt);
-            _lastAuxCurrentSent = auxCurrent;
-            _auxCurrentSendTimer = delayTimerInit();
-        }
-    }
+    processSendValue(KoBPS_AuxVoltage, DPT_Value_Electric_Potential, ParamBPS_AuxVoltageChangeSend, ParamBPS_AuxVoltageSendMinChangePercent, ParamBPS_AuxVoltageSendMinChangeAbsolute, ParamBPS_AuxVoltageSendCyclicTimeMS, _auxVoltageSendTimer, _lastAuxVoltageSent, auxVoltage);
+    processSendValue(KoBPS_AuxCurrent, DPT_Value_Electric_Current, ParamBPS_AuxCurrentChangeSend, ParamBPS_AuxCurrentSendMinChangePercent, ParamBPS_AuxCurrentSendMinChangeAbsolute, ParamBPS_AuxCurrentSendCyclicTimeMS, _auxCurrentSendTimer, _lastAuxCurrentSent, auxCurrent, 1000);
     
-    if (ParamBPS_TemperatureChangeSend)
+    processSendValue(KoBPS_Temperature, DPT_Value_Temp, ParamBPS_TemperatureChangeSend, ParamBPS_TemperatureSendMinChangePercent, ParamBPS_TemperatureSendMinChangeAbsolute, ParamBPS_TemperatureSendCyclicTimeMS, _temperatureSendTimer, _lastTemperatureSent, temperature);
+}
+
+void BusPowerSupplyModule::processSendValue(GroupObject& ko, Dpt dpt, bool send, uint8_t sendMinChangePercent, uint16_t sendMinChangeAbsolute, uint32_t sendCyclicTimeMS, uint32_t& cyclicSendTimer, float& lastSentValue, float currentValue, uint16_t checkMultiply)
+{
+    if (!send)
+        return;
+
+    uint16_t currentDifference = round(abs(lastSentValue - currentValue * checkMultiply));
+    if (currentDifference > 0)
     {
-        float temperature = _temperature.readTemperatureC();
-        float temperatureDifference = abs(_lastTemperatureSent - temperature);
-        if (_lastTemperatureSent > 0 &&
-            temperatureDifference >= _lastTemperatureSent * ParamBPS_TemperatureSendMinChangePercent / 100.0f &&
-            temperatureDifference >= ParamBPS_TemperatureSendMinChangeAbsolute)
+        if (lastSentValue > 0 && currentDifference >= lastSentValue * sendMinChangePercent / checkMultiply &&
+            currentDifference >= sendMinChangeAbsolute)
         {
-            KoBPS_Temperature.value(temperature, DPT_Value_Temp);
-            _lastTemperatureSent = temperature;
-            _temperaturSendTimer = delayTimerInit();
+            ko.value(currentValue, dpt);
+            lastSentValue = currentValue * checkMultiply;
         }
         else
-            KoBPS_Temperature.valueNoSend(temperature, DPT_Value_Temp);
+            ko.valueNoSend(currentValue, dpt);
+    }
 
-        if (ParamBPS_TemperatureSendCyclicTimeMS > 0 && delayCheck(_temperaturSendTimer, ParamBPS_TemperatureSendCyclicTimeMS))
-        {
-            KoBPS_Temperature.value(temperature, DPT_Value_Temp);
-            _lastTemperatureSent = temperature;
-            _temperaturSendTimer = delayTimerInit();
-        }
+    if (sendCyclicTimeMS > 0 && delayCheckMillis(cyclicSendTimer, sendCyclicTimeMS))
+    {
+        ko.value(currentValue, dpt);
+        lastSentValue = currentValue * checkMultiply;
+        cyclicSendTimer = delayTimerInit();
     }
 }
 
