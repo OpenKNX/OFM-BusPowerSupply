@@ -139,73 +139,56 @@ void BusPowerSupplyModule::loop()
         if (ParamBPS_PowerSupply2ChangeSend)
             KoBPS_PowerSupply2Status.value(pwr2Ok, DPT_Switch);
     }
-    
-    if (_recentPwrSupplySwitches > MAX_CURRENT_SWITCH_PER_SECOND &&
-        (_pwrActive == 1 && !_pwr1Ok || _pwrActive == 2 && !_pwr2Ok))
-    {
-        pwr1Off();
-        pwr2Off();
-        _pwrActive = 0;
-        _overcurrent = true;
-        _overcurrentStarted = delayTimerInit();
 
-        logErrorP("Too many power supply switches, all power off");
-    }
-    else if (_pwrActive == 1 && !_pwr1Ok)
+    if (_reestActive && delayCheck(_resetStarted, ParamBPS_ResetTime * 1000))
     {
-        if (_pwr2Ok)
+        _reestActive = false;
+        _resetStarted = 0;
+        openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_RST, !OPENKNX_BPS_STATUS_ACTIVE_ON);
+
+        logInfoP("Bus reset finished");
+    }
+
+    if (!_reestActive)
+    {
+        if (_recentPwrSupplySwitches > MAX_CURRENT_SWITCH_PER_SECOND &&
+            (_pwrActive == 1 && !_pwr1Ok || _pwrActive == 2 && !_pwr2Ok))
         {
             pwr1Off();
-            pwr2On();
-            _pwrActive = 2;
-            _pwrErrorLogged = false;
-
-            _recentPwrSupplySwitches++;
-            _lastPwrSupplySwitch = delayTimerInit();
-
-            logInfoP("PWR1 failed, switched to PWR2");
-        }
-        else
-        {
-            if (!_pwrErrorLogged)
-            {
-                _pwrErrorLogged = true;
-                logErrorP("PWR1 failed, PWR2 is NOT available, too!");
-
-                openknx.common.triggerSavePin();
-                logInfoP("SAVE triggered.");
-            }
-        }
-    }
-    else if (_pwrActive == 2 && !_pwr2Ok)
-    {
-        if (_pwr1Ok)
-        {
             pwr2Off();
-            pwr1On();
-            _pwrActive = 1;
-            _pwrErrorLogged = false;
+            _pwrActive = 0;
+            _overcurrent = true;
+            _overcurrentStarted = delayTimerInit();
 
-            _recentPwrSupplySwitches++;
-            _lastPwrSupplySwitch = delayTimerInit();
-
-            logInfoP("PWR2 failed, switched to PWR1");
+            logErrorP("Too many power supply switches, all power off");
         }
-        else
+        else if (_pwrActive == 1 && !_pwr1Ok)
         {
-            if (!_pwrErrorLogged)
+            if (_pwr2Ok)
             {
-                _pwrErrorLogged = true;
-                logErrorP("PWR2 failed, PWR1 is NOT available, too!");
+                pwr1Off();
+                pwr2On();
+                _pwrActive = 2;
+                _pwrErrorLogged = false;
 
-                openknx.common.triggerSavePin();
-                logInfoP("SAVE triggered.");
+                _recentPwrSupplySwitches++;
+                _lastPwrSupplySwitch = delayTimerInit();
+
+                logInfoP("PWR1 failed, switched to PWR2");
+            }
+            else
+            {
+                if (!_pwrErrorLogged)
+                {
+                    _pwrErrorLogged = true;
+                    logErrorP("PWR1 failed, PWR2 is NOT available, too!");
+
+                    openknx.common.triggerSavePin();
+                    logInfoP("SAVE triggered.");
+                }
             }
         }
-    }
-    else if (_pwrActive == 0)
-    {
-        if (!_overcurrent || delayCheck(_overcurrentStarted, CURRENT_OVERLOAD_TIMEOUT_MS))
+        else if (_pwrActive == 2 && !_pwr2Ok)
         {
             if (_pwr1Ok)
             {
@@ -213,22 +196,51 @@ void BusPowerSupplyModule::loop()
                 pwr1On();
                 _pwrActive = 1;
                 _pwrErrorLogged = false;
-                logInfoP("Power supply started, PWR1 available, switching to PWR1");
-            }
-            else if (_pwr2Ok)
-            {
-                pwr1Off();
-                pwr2On();
-                _pwrActive = 2;
-                _pwrErrorLogged = false;
-                logInfoP("Power supply started, PWR2 available, switching to PWR2");
+
+                _recentPwrSupplySwitches++;
+                _lastPwrSupplySwitch = delayTimerInit();
+
+                logInfoP("PWR2 failed, switched to PWR1");
             }
             else
             {
                 if (!_pwrErrorLogged)
                 {
                     _pwrErrorLogged = true;
-                    logErrorP("Power supply started, no power supply available!");
+                    logErrorP("PWR2 failed, PWR1 is NOT available, too!");
+
+                    openknx.common.triggerSavePin();
+                    logInfoP("SAVE triggered.");
+                }
+            }
+        }
+        else if (_pwrActive == 0)
+        {
+            if (!_overcurrent || delayCheck(_overcurrentStarted, CURRENT_OVERLOAD_TIMEOUT_MS))
+            {
+                if (_pwr1Ok)
+                {
+                    pwr2Off();
+                    pwr1On();
+                    _pwrActive = 1;
+                    _pwrErrorLogged = false;
+                    logInfoP("Power supply started, PWR1 available, switching to PWR1");
+                }
+                else if (_pwr2Ok)
+                {
+                    pwr1Off();
+                    pwr2On();
+                    _pwrActive = 2;
+                    _pwrErrorLogged = false;
+                    logInfoP("Power supply started, PWR2 available, switching to PWR2");
+                }
+                else
+                {
+                    if (!_pwrErrorLogged)
+                    {
+                        _pwrErrorLogged = true;
+                        logErrorP("Power supply started, no power supply available!");
+                    }
                 }
             }
         }
@@ -261,14 +273,14 @@ void BusPowerSupplyModule::loop()
     }
 
     float totalCurrentMa = (busCurrent + auxCurrent) * 1000;
-    bool currentOk = totalCurrentMa < CURRENT_MAX_THRESHOLD_MA;
+    bool currentOk = _reestActive || totalCurrentMa < CURRENT_MAX_THRESHOLD_MA;
     if (_currentOk != currentOk)
     {
         _currentOk = currentOk;
         openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_MAX, _currentOk ? !OPENKNX_BPS_STATUS_ACTIVE_ON : OPENKNX_BPS_STATUS_ACTIVE_ON);
     }
 
-    if (totalCurrentMa > CURRENT_OVERLOAD_THRESHOLD_MA)
+    if (!_reestActive && totalCurrentMa > CURRENT_OVERLOAD_THRESHOLD_MA)
     {
         pwr1Off();
         pwr2Off();
@@ -295,6 +307,19 @@ void BusPowerSupplyModule::loop()
     {
         KoBPS_PowerSupply2Status.value(_pwr2Ok, DPT_Switch);
         _powerSupply2SendTimer = delayTimerInit();
+    }
+
+    bool resetPressed = openknx.gpio.digitalRead(OPENKNX_BPS_SWITCH_RST) == OPENKNX_BPS_SWITCH_ACTIVE_ON;
+    if (resetPressed && _resetStarted == 0)
+    {
+        _reestActive = true;
+        _resetStarted = delayTimerInit();
+        openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_RST, OPENKNX_BPS_STATUS_ACTIVE_ON);
+        logInfoP("Bus reset started, all power off for %d sec.", ParamBPS_ResetTime);
+
+        pwr1Off();
+        pwr2Off();
+        _pwrActive = 0;
     }
 
     processSendValue(KoBPS_BusVoltage, DPT_Value_Electric_Potential, ParamBPS_BusVoltageChangeSend, ParamBPS_BusVoltageSendMinChangePercent, ParamBPS_BusVoltageSendMinChangeAbsolute, ParamBPS_BusVoltageSendCyclicTimeMS, _busVoltageSendTimer, _lastBusVoltageSent, busVoltage);

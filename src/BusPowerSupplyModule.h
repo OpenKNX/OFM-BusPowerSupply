@@ -10,8 +10,6 @@
 // #define OPENKNX_BPS_FLASH_VERSION 0
 // #define OPENKNX_BPS_FLASH_MAGIC_WORD 0
 
-#define CH_SWITCH_DEBOUNCE 250
-
 #define BUS_LOAD_UPDATE_RATE 1000
 #define BUS_LOAD_MAX_BYTES_PER_SECOND 800
 
@@ -75,6 +73,9 @@ class BusPowerSupplyModule : public OpenKNX::Module
     uint32_t _overcurrentStarted = 0;
     uint8_t _recentPwrSupplySwitches = 0;
     uint32_t _lastPwrSupplySwitch = 0;
+
+    bool _reestActive = false;
+    uint32_t _resetStarted = 0;
 
     float _lastPowerSupply1Sent = 0;
     float _lastPowerSupply2Sent = 0;
