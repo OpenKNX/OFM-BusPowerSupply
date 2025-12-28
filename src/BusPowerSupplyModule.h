@@ -2,9 +2,9 @@
 #include "OpenKNX.h"
 #include "hardware.h"
 #include "knxprod.h"
-#include <Adafruit_INA238.h>
+#include <INA238.h>
 #ifdef OPENKNX_BPS_TEMPSENS_ADDR
-  #include <Temperature_LM75_Derived.h>
+  #include <PCT2075.h>
 #endif
 
 // #define OPENKNX_BPS_FLASH_VERSION 0
@@ -56,11 +56,11 @@ class BusPowerSupplyModule : public OpenKNX::Module
 
     void processSendValue(GroupObject& ko, Dpt dpt, bool send, uint8_t sendMinChangePercent, uint16_t sendMinChangeAbsolute, uint32_t sendCyclicTimeMS, uint32_t& cyclicSendTimer, float& lastSentValue, float currentValue, uint16_t checkMultiply = 1);
 
-    Adafruit_INA238 _inaKnx = Adafruit_INA238();
-    Adafruit_INA238 _inaAux = Adafruit_INA238();
+    INA238 _inaKnx = INA238(OPENKNX_BPS_CURRENT_KNX_INA_ADDR, &OPENKNX_GPIO_WIRE);
+    INA238 _inaAux = INA238(OPENKNX_BPS_CURRENT_AUX_INA_ADDR, &OPENKNX_GPIO_WIRE);
 
 #ifdef OPENKNX_BPS_TEMPSENS_ADDR
-    Generic_LM75_9_to_12Bit_OneShot _temperature = Generic_LM75_9_to_12Bit_OneShot(&OPENKNX_GPIO_WIRE, OPENKNX_BPS_TEMPSENS_ADDR);
+    PCT2075 _temperature = PCT2075(OPENKNX_BPS_TEMPSENS_ADDR, &OPENKNX_GPIO_WIRE);
 #endif
 
     uint8_t _pwrActive = 0;

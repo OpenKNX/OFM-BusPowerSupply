@@ -57,14 +57,14 @@ void BusPowerSupplyModule::setup(bool configured)
 
     analogReadResolution(12);
 
-    if (_inaKnx.begin(OPENKNX_BPS_CURRENT_KNX_INA_ADDR, &OPENKNX_GPIO_WIRE))
+    if (_inaKnx.begin())
     {
         logDebugP("KNX INA238 setup done with address %u", OPENKNX_BPS_CURRENT_KNX_INA_ADDR);
         logIndentUp();
 
-        _inaKnx.setShunt(OPENKNX_BPS_CURRENT_KNX_INA_SHUNT, 3);
-        _inaKnx.setAveragingCount(INA2XX_COUNT_16);
-        _inaKnx.setMode(INA2XX_MODE_CONTINUOUS);
+        _inaKnx.setMaxCurrentShunt(3, OPENKNX_BPS_CURRENT_KNX_INA_SHUNT);
+        _inaKnx.setAverage(INA238_16_SAMPLES);
+        _inaKnx.setMode(INA238_MODE_CONT_TEMP_BUS_SHUNT);
 
 #ifdef OPENKNX_DEBUG
         delay(1000);
@@ -79,14 +79,14 @@ void BusPowerSupplyModule::setup(bool configured)
     else
         logDebugP("KNX INA238 not found at address %u", OPENKNX_BPS_CURRENT_KNX_INA_ADDR);
 
-    if (_inaAux.begin(OPENKNX_BPS_CURRENT_AUX_INA_ADDR, &OPENKNX_GPIO_WIRE))
+    if (_inaAux.begin())
     {
         logDebugP("AUX INA238 setup done with address %u", OPENKNX_BPS_CURRENT_AUX_INA_ADDR);
         logIndentUp();
 
-        _inaAux.setShunt(OPENKNX_BPS_CURRENT_AUX_INA_SHUNT, 3);
-        _inaKnx.setAveragingCount(INA2XX_COUNT_16);
-        _inaAux.setMode(INA2XX_MODE_CONTINUOUS);
+        _inaAux.setMaxCurrentShunt(3, OPENKNX_BPS_CURRENT_KNX_INA_SHUNT);
+        _inaAux.setAverage(INA238_16_SAMPLES);
+        _inaAux.setMode(INA238_MODE_CONT_TEMP_BUS_SHUNT);
 
 #ifdef OPENKNX_DEBUG
         delay(1000);
@@ -246,12 +246,12 @@ void BusPowerSupplyModule::loop()
         }
     }
 
-    float busVoltage = _inaKnx.getBusVoltage_V();
-    float busCurrent = _inaKnx.getCurrent_mA() / 1000;
-    float auxVoltage = _inaAux.getBusVoltage_V();
-    float auxCurrent = _inaAux.getCurrent_mA() / 1000;
+    float busVoltage = _inaKnx.getBusVoltage();
+    float busCurrent = _inaKnx.getCurrent();
+    float auxVoltage = _inaAux.getBusVoltage();
+    float auxCurrent = _inaAux.getCurrent();
     float busLoad = estimateBusLoad();
-    float temperature = _temperature.readTemperatureC();
+    float temperature = _temperature.getTemperature();
 
 #ifdef OPENKNX_DEBUG
     if (delayCheck(_debugTimer, 1000))
