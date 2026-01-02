@@ -116,7 +116,7 @@ float BusPowerSupplyModule::estimateBusLoad()
     return (float)bytesPerSecond / (float)BUS_LOAD_MAX_BYTES_PER_SECOND;
 }
 
-void BusPowerSupplyModule::loop()
+void BusPowerSupplyModule::loop(bool configured)
 {
     float pwr1Voltage = (float)analogRead(OPENKNX_BPS_PWR1_CHECK_PIN) / (float)4095 * (float)3.3 * (float)OPENKNX_BPS_PWR_CHECK_FACTOR;
     bool pwr1Ok = pwr1Voltage > POWER_OK_THRESHOLD_VOLTAGE;
@@ -125,7 +125,7 @@ void BusPowerSupplyModule::loop()
         _pwr1Ok = pwr1Ok;
         openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_PW1, _pwr1Ok ? OPENKNX_BPS_STATUS_ACTIVE_ON : !OPENKNX_BPS_STATUS_ACTIVE_ON);
 
-        if (ParamBPS_PowerSupply1ChangeSend)
+        if (configured && ParamBPS_PowerSupply1ChangeSend)
             KoBPS_PowerSupply1Status.value(pwr1Ok, DPT_Switch);
     }
 
@@ -136,11 +136,12 @@ void BusPowerSupplyModule::loop()
         _pwr2Ok = pwr2Ok;
         openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_PW2, _pwr2Ok ? OPENKNX_BPS_STATUS_ACTIVE_ON : !OPENKNX_BPS_STATUS_ACTIVE_ON);
 
-        if (ParamBPS_PowerSupply2ChangeSend)
+        if (configured && ParamBPS_PowerSupply2ChangeSend)
             KoBPS_PowerSupply2Status.value(pwr2Ok, DPT_Switch);
     }
 
-    if (_reestActive && delayCheck(_resetStarted, ParamBPS_ResetTime * 1000))
+    uint8_t resetTime = configured ? ParamBPS_ResetTime : 10;
+    if (_reestActive && delayCheck(_resetStarted, resetTime * 1000))
     {
         _reestActive = false;
         _resetStarted = 0;
@@ -297,39 +298,42 @@ void BusPowerSupplyModule::loop()
         _recentPwrSupplySwitches = 0;
     }
 
-    if (ParamBPS_PowerSupply1SendCyclicTimeMS > 0 && delayCheck(_powerSupply1SendTimer, ParamBPS_PowerSupply1SendCyclicTimeMS))
-    {
-        KoBPS_PowerSupply1Status.value(_pwr1Ok, DPT_Switch);
-        _powerSupply1SendTimer = delayTimerInit();
-    }
-
-    if (ParamBPS_PowerSupply2SendCyclicTimeMS > 0 && delayCheck(_powerSupply2SendTimer, ParamBPS_PowerSupply2SendCyclicTimeMS))
-    {
-        KoBPS_PowerSupply2Status.value(_pwr2Ok, DPT_Switch);
-        _powerSupply2SendTimer = delayTimerInit();
-    }
-
     bool resetPressed = openknx.gpio.digitalRead(OPENKNX_BPS_SWITCH_RST) == OPENKNX_BPS_SWITCH_ACTIVE_ON;
     if (resetPressed && _resetStarted == 0)
     {
         _reestActive = true;
         _resetStarted = delayTimerInit();
         openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_RST, OPENKNX_BPS_STATUS_ACTIVE_ON);
-        logInfoP("Bus reset started, all power off for %d sec.", ParamBPS_ResetTime);
+        logInfoP("Bus reset started, all power off for %d sec.", resetTime);
 
         pwr1Off();
         pwr2Off();
         _pwrActive = 0;
     }
 
-    processSendValue(KoBPS_BusVoltage, DPT_Value_Electric_Potential, ParamBPS_BusVoltageChangeSend, ParamBPS_BusVoltageSendMinChangePercent, ParamBPS_BusVoltageSendMinChangeAbsolute, ParamBPS_BusVoltageSendCyclicTimeMS, _busVoltageSendTimer, _lastBusVoltageSent, busVoltage);
-    processSendValue(KoBPS_BusCurrent, DPT_Value_Electric_Current, ParamBPS_BusCurrentChangeSend, ParamBPS_BusCurrentSendMinChangePercent, ParamBPS_BusCurrentSendMinChangeAbsolute, ParamBPS_BusCurrentSendCyclicTimeMS, _busCurrentSendTimer, _lastBusCurrentSent, busCurrent, 1000);
-    processSendValue(KoBPS_BusLoad, DPT_Scaling, ParamBPS_BusLoadChangeSend, ParamBPS_BusLoadSendMinChangePercent, ParamBPS_BusLoadSendMinChangeAbsolute, ParamBPS_BusLoadSendCyclicTimeMS, _busLoadSendTimer, _lastBusLoadSent, busLoad);
+    if (configured)
+    {
+        if (ParamBPS_PowerSupply1SendCyclicTimeMS > 0 && delayCheck(_powerSupply1SendTimer, ParamBPS_PowerSupply1SendCyclicTimeMS))
+        {
+            KoBPS_PowerSupply1Status.value(_pwr1Ok, DPT_Switch);
+            _powerSupply1SendTimer = delayTimerInit();
+        }
 
-    processSendValue(KoBPS_AuxVoltage, DPT_Value_Electric_Potential, ParamBPS_AuxVoltageChangeSend, ParamBPS_AuxVoltageSendMinChangePercent, ParamBPS_AuxVoltageSendMinChangeAbsolute, ParamBPS_AuxVoltageSendCyclicTimeMS, _auxVoltageSendTimer, _lastAuxVoltageSent, auxVoltage);
-    processSendValue(KoBPS_AuxCurrent, DPT_Value_Electric_Current, ParamBPS_AuxCurrentChangeSend, ParamBPS_AuxCurrentSendMinChangePercent, ParamBPS_AuxCurrentSendMinChangeAbsolute, ParamBPS_AuxCurrentSendCyclicTimeMS, _auxCurrentSendTimer, _lastAuxCurrentSent, auxCurrent, 1000);
-    
-    processSendValue(KoBPS_Temperature, DPT_Value_Temp, ParamBPS_TemperatureChangeSend, ParamBPS_TemperatureSendMinChangePercent, ParamBPS_TemperatureSendMinChangeAbsolute, ParamBPS_TemperatureSendCyclicTimeMS, _temperatureSendTimer, _lastTemperatureSent, temperature);
+        if (ParamBPS_PowerSupply2SendCyclicTimeMS > 0 && delayCheck(_powerSupply2SendTimer, ParamBPS_PowerSupply2SendCyclicTimeMS))
+        {
+            KoBPS_PowerSupply2Status.value(_pwr2Ok, DPT_Switch);
+            _powerSupply2SendTimer = delayTimerInit();
+        }
+
+        processSendValue(KoBPS_BusVoltage, DPT_Value_Electric_Potential, ParamBPS_BusVoltageChangeSend, ParamBPS_BusVoltageSendMinChangePercent, ParamBPS_BusVoltageSendMinChangeAbsolute, ParamBPS_BusVoltageSendCyclicTimeMS, _busVoltageSendTimer, _lastBusVoltageSent, busVoltage);
+        processSendValue(KoBPS_BusCurrent, DPT_Value_Electric_Current, ParamBPS_BusCurrentChangeSend, ParamBPS_BusCurrentSendMinChangePercent, ParamBPS_BusCurrentSendMinChangeAbsolute, ParamBPS_BusCurrentSendCyclicTimeMS, _busCurrentSendTimer, _lastBusCurrentSent, busCurrent, 1000);
+        processSendValue(KoBPS_BusLoad, DPT_Scaling, ParamBPS_BusLoadChangeSend, ParamBPS_BusLoadSendMinChangePercent, ParamBPS_BusLoadSendMinChangeAbsolute, ParamBPS_BusLoadSendCyclicTimeMS, _busLoadSendTimer, _lastBusLoadSent, busLoad);
+
+        processSendValue(KoBPS_AuxVoltage, DPT_Value_Electric_Potential, ParamBPS_AuxVoltageChangeSend, ParamBPS_AuxVoltageSendMinChangePercent, ParamBPS_AuxVoltageSendMinChangeAbsolute, ParamBPS_AuxVoltageSendCyclicTimeMS, _auxVoltageSendTimer, _lastAuxVoltageSent, auxVoltage);
+        processSendValue(KoBPS_AuxCurrent, DPT_Value_Electric_Current, ParamBPS_AuxCurrentChangeSend, ParamBPS_AuxCurrentSendMinChangePercent, ParamBPS_AuxCurrentSendMinChangeAbsolute, ParamBPS_AuxCurrentSendCyclicTimeMS, _auxCurrentSendTimer, _lastAuxCurrentSent, auxCurrent, 1000);
+        
+        processSendValue(KoBPS_Temperature, DPT_Value_Temp, ParamBPS_TemperatureChangeSend, ParamBPS_TemperatureSendMinChangePercent, ParamBPS_TemperatureSendMinChangeAbsolute, ParamBPS_TemperatureSendCyclicTimeMS, _temperatureSendTimer, _lastTemperatureSent, temperature);
+    }
 }
 
 void BusPowerSupplyModule::processSendValue(GroupObject& ko, Dpt dpt, bool send, uint8_t sendMinChangePercent, uint16_t sendMinChangeAbsolute, uint32_t sendCyclicTimeMS, uint32_t& cyclicSendTimer, float& lastSentValue, float currentValue, uint16_t checkMultiply)

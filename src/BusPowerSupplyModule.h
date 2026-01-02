@@ -30,7 +30,7 @@ class BusPowerSupplyModule : public OpenKNX::Module
 
     void processInputKo(GroupObject &ko);
     void setup(bool configured);
-    void loop();
+    void loop(bool configured);
 
     void writeFlash() override;
     void readFlash(const uint8_t* data, const uint16_t size) override;
