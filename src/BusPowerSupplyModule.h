@@ -15,7 +15,10 @@
 
 #define POWER_OK_THRESHOLD_VOLTAGE 28
 #define CURRENT_MAX_THRESHOLD_MA 1280
-#define CURRENT_OVERLOAD_THRESHOLD_MA 2500
+
+#define CURRENT_OVERLOAD_THRESHOLD_MAX_MA 3000
+#define CURRENT_OVERLOAD_THRESHOLD_SHORT_MA 2400
+#define CURRENT_OVERLOAD_THRESHOLD_SHORT_TIME_MS 3000
 
 #define CURRENT_OVERLOAD_TIMEOUT_MS 5000
 
@@ -71,10 +74,11 @@ class BusPowerSupplyModule : public OpenKNX::Module
     bool _currentOk = true;
     bool _overcurrent = false;
     uint32_t _overcurrentStarted = 0;
+    uint32_t _overcurrentShortStarted = 0;
     uint8_t _recentPwrSupplySwitches = 0;
     uint32_t _lastPwrSupplySwitch = 0;
 
-    bool _reestActive = false;
+    bool _resetActive = false;
     uint32_t _resetStarted = 0;
 
     float _lastPowerSupply1Sent = 0;

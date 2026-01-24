@@ -141,16 +141,16 @@ void BusPowerSupplyModule::loop(bool configured)
     }
 
     uint8_t resetTime = configured ? ParamBPS_ResetTime : 10;
-    if (_reestActive && delayCheck(_resetStarted, resetTime * 1000))
+    if (_resetActive && delayCheck(_resetStarted, resetTime * 1000))
     {
-        _reestActive = false;
+        _resetActive = false;
         _resetStarted = 0;
         openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_RST, !OPENKNX_BPS_STATUS_ACTIVE_ON);
 
         logInfoP("Bus reset finished");
     }
 
-    if (!_reestActive)
+    if (!_resetActive)
     {
         if (_recentPwrSupplySwitches > MAX_CURRENT_SWITCH_PER_SECOND &&
             (_pwrActive == 1 && !_pwr1Ok || _pwrActive == 2 && !_pwr2Ok))
@@ -274,22 +274,49 @@ void BusPowerSupplyModule::loop(bool configured)
     }
 
     float totalCurrentMa = (busCurrent + auxCurrent) * 1000;
-    bool currentOk = _reestActive || totalCurrentMa < CURRENT_MAX_THRESHOLD_MA;
+    bool currentOk = _resetActive || totalCurrentMa < CURRENT_MAX_THRESHOLD_MA;
     if (_currentOk != currentOk)
     {
         _currentOk = currentOk;
         openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_MAX, _currentOk ? !OPENKNX_BPS_STATUS_ACTIVE_ON : OPENKNX_BPS_STATUS_ACTIVE_ON);
     }
 
-    if (!_reestActive && totalCurrentMa > CURRENT_OVERLOAD_THRESHOLD_MA)
-    {
-        pwr1Off();
-        pwr2Off();
-        _pwrActive = 0;
-        _overcurrent = true;
-        _overcurrentStarted = delayTimerInit();
+    bool maxOverload = totalCurrentMa > CURRENT_OVERLOAD_THRESHOLD_MAX_MA;
+    bool shortOverload = totalCurrentMa > CURRENT_OVERLOAD_THRESHOLD_SHORT_MA;
 
-        logErrorP("Bus current overload detected: %.2f mA, all power off", totalCurrentMa);
+    if (_resetActive || !shortOverload)
+        _overcurrentShortStarted = 0;
+
+    if (!_resetActive)
+    {
+        if (maxOverload)
+        {
+            pwr1Off();
+            pwr2Off();
+            _pwrActive = 0;
+            _overcurrent = true;
+            _overcurrentStarted = delayTimerInit();
+            _overcurrentShortStarted = 0;
+
+            logErrorP("Maximum overload exceeded (%.2f mA > %u mA), all power off", totalCurrentMa, CURRENT_OVERLOAD_THRESHOLD_MAX_MA);
+        }
+        else if (shortOverload)
+        {
+            if (_overcurrentShortStarted == 0)
+                _overcurrentShortStarted = delayTimerInit();
+
+            if (delayCheck(_overcurrentShortStarted, CURRENT_OVERLOAD_THRESHOLD_SHORT_TIME_MS))
+            {
+                pwr1Off();
+                pwr2Off();
+                _pwrActive = 0;
+                _overcurrent = true;
+                _overcurrentStarted = delayTimerInit();
+                _overcurrentShortStarted = 0;
+
+                logErrorP("Short-time overload exceeded for too long (%.2f mA > %u mA for %u ms), all power off", totalCurrentMa, CURRENT_OVERLOAD_THRESHOLD_SHORT_MA, CURRENT_OVERLOAD_THRESHOLD_SHORT_TIME_MS);
+            }
+        }
     }
 
     if (_lastPwrSupplySwitch > 0 && delayCheck(_lastPwrSupplySwitch, POWER_SUPPLY_SWITCH_RECENT_RESET_MS))
@@ -301,7 +328,7 @@ void BusPowerSupplyModule::loop(bool configured)
     bool resetPressed = openknx.gpio.digitalRead(OPENKNX_BPS_SWITCH_RST) == OPENKNX_BPS_SWITCH_ACTIVE_ON;
     if (resetPressed && _resetStarted == 0)
     {
-        _reestActive = true;
+        _resetActive = true;
         _resetStarted = delayTimerInit();
         openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_RST, OPENKNX_BPS_STATUS_ACTIVE_ON);
         logInfoP("Bus reset started, all power off for %d sec.", resetTime);
