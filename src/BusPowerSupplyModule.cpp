@@ -219,14 +219,12 @@ void BusPowerSupplyModule::loop(bool configured)
         {
             uint32_t retryDelay = 60000;
             if (_overcurrentRetryCount <= 1)
-                retryDelay = 1000;
-            else if (_overcurrentRetryCount == 2)
                 retryDelay = 3000;
-            else if (_overcurrentRetryCount == 3)
+            else if (_overcurrentRetryCount == 2)
                 retryDelay = 5000;
-            else if (_overcurrentRetryCount == 4)
+            else if (_overcurrentRetryCount == 3)
                 retryDelay = 10000;
-            else if (_overcurrentRetryCount == 5)
+            else if (_overcurrentRetryCount == 4)
                 retryDelay = 30000;
 
             if (!_overcurrent || delayCheck(_overcurrentStarted, retryDelay))
