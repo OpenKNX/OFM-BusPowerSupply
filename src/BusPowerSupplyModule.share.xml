@@ -26,8 +26,8 @@
                 <Parameter Id="%AID%_UP-%TT%00004" Name="BusVoltageChangeSend" ParameterType="%AID%_PT-OnOffYesNo" Offset="0" BitOffset="2" Text="Busspannung senden" Value="0" />
                 <Parameter Id="%AID%_UP-%TT%00005" Name="BusCurrentChangeSend" ParameterType="%AID%_PT-OnOffYesNo" Offset="0" BitOffset="3" Text="Busstrom senden" Value="0" />
                 <Parameter Id="%AID%_UP-%TT%00006" Name="BusLoadChangeSend" ParameterType="%AID%_PT-OnOffYesNo" Offset="0" BitOffset="4" Text="Busauslastung senden" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%00007" Name="AuxVoltageChangeSend" ParameterType="%AID%_PT-OnOffYesNo" Offset="0" BitOffset="5" Text="AUX-Spannung senden" Value="0" />
-                <Parameter Id="%AID%_UP-%TT%00008" Name="AuxCurrentChangeSend" ParameterType="%AID%_PT-OnOffYesNo" Offset="0" BitOffset="6" Text="AUX-Strom senden" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%00007" Name="AuxVoltageChangeSend" ParameterType="%AID%_PT-OnOffYesNo" Offset="0" BitOffset="5" Text="Hilfsspannung senden" Value="0" />
+                <Parameter Id="%AID%_UP-%TT%00008" Name="AuxCurrentChangeSend" ParameterType="%AID%_PT-OnOffYesNo" Offset="0" BitOffset="6" Text="Hilfsstrom senden" Value="0" />
                 <Parameter Id="%AID%_UP-%TT%00009" Name="TemperatureChangeSend" ParameterType="%AID%_PT-OnOffYesNo" Offset="0" BitOffset="7" Text="Temperatur senden" Value="0" />
                 <Parameter Id="%AID%_UP-%TT%00010" Name="PowerSupply1SendCyclicBase" ParameterType="%AID%_PT-DelayBase" Offset="1" BitOffset="0" Text="Zeitbasis" Value="0" />
                 <Parameter Id="%AID%_UP-%TT%00011" Name="PowerSupply1SendCyclicTime" ParameterType="%AID%_PT-DelayTime" Offset="1" BitOffset="2" Text="Zeit" Value="0" />
@@ -130,13 +130,13 @@
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="" UIHint="HorizontalRuler" />
 
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Einstellungen" UIHint="Headline" />
-                <ParameterRefRef RefId="%AID%_UP-%TT%00001_R-%TT%0000101" IndentLevel="1" /> <!-- Reset Time -->
+                <ParameterRefRef RefId="%AID%_UP-%TT%00001_R-%TT%0000101" IndentLevel="1" HelpContext="%DOC%" /> <!-- Reset Time -->
 
                 <ParameterSeparator Id="%AID%_PS-nnn" Text="Ausgaben" UIHint="Headline"/>
-                <ParameterRefRef RefId="%AID%_UP-%TT%00002_R-%TT%0000201" IndentLevel="1" /> <!-- Power Supply 1 -->
+                <ParameterRefRef RefId="%AID%_UP-%TT%00002_R-%TT%0000201" IndentLevel="1" HelpContext="BPS-Status-Netzteil-senden" /> <!-- Power Supply 1 -->
                 <choose ParamRefId="%AID%_UP-%TT%00002_R-%TT%0000201">
                   <when test="1">
-                    <ParameterBlock Id="%AID%_PB-nnn" Name="PowerSupply1Cyclic" Inline="true" Layout="Grid"> <!-- cyclic pattern -->
+                    <ParameterBlock Id="%AID%_PB-nnn" Name="PowerSupply1Cyclic" Inline="true" Layout="Grid" HelpContext="BPS-Status-zyklisch-senden"> <!-- cyclic pattern -->
                       <Rows>
                         <Row Id="%AID%_PB-nnn_R-1" Name="Row1" />
                       </Rows>
@@ -154,10 +154,10 @@
                     <ComObjectRefRef RefId="%AID%_O-%TT%00001_R-%TT%0000101" />
                   </when>
                 </choose>
-                <ParameterRefRef RefId="%AID%_UP-%TT%00003_R-%TT%0000301" IndentLevel="1" /> <!-- Power Supply 2 -->
+                <ParameterRefRef RefId="%AID%_UP-%TT%00003_R-%TT%0000301" IndentLevel="1" HelpContext="BPS-Status-Netzteil-senden" /> <!-- Power Supply 2 -->
                 <choose ParamRefId="%AID%_UP-%TT%00003_R-%TT%0000301">
                   <when test="1">
-                    <ParameterBlock Id="%AID%_PB-nnn" Name="PowerSupply2Cyclic" Inline="true" Layout="Grid"> <!-- cyclic pattern -->
+                    <ParameterBlock Id="%AID%_PB-nnn" Name="PowerSupply2Cyclic" Inline="true" Layout="Grid" HelpContext="BPS-Status-zyklisch-senden"> <!-- cyclic pattern -->
                       <Rows>
                         <Row Id="%AID%_PB-nnn_R-1" Name="Row1" />
                       </Rows>
@@ -175,12 +175,12 @@
                     <ComObjectRefRef RefId="%AID%_O-%TT%00002_R-%TT%0000201" />
                   </when>
                 </choose>
-                <ParameterRefRef RefId="%AID%_UP-%TT%00004_R-%TT%0000401" IndentLevel="1" /> <!-- Bus Voltage -->
+                <ParameterRefRef RefId="%AID%_UP-%TT%00004_R-%TT%0000401" IndentLevel="1" HelpContext="%DOC%" /> <!-- Bus Voltage -->
                 <choose ParamRefId="%AID%_UP-%TT%00004_R-%TT%0000401">
                   <when test="1">
-                    <ParameterRefRef RefId="%AID%_UP-%TT%00014_R-%TT%0001401" IndentLevel="2" />
-                    <ParameterRefRef RefId="%AID%_UP-%TT%00015_R-%TT%0001501" IndentLevel="2" />
-                    <ParameterBlock Id="%AID%_PB-nnn" Name="BusVoltageCyclic" Inline="true" Layout="Grid"> <!-- cyclic pattern -->
+                    <ParameterRefRef RefId="%AID%_UP-%TT%00014_R-%TT%0001401" IndentLevel="2" HelpContext="%DOC%" />
+                    <ParameterRefRef RefId="%AID%_UP-%TT%00015_R-%TT%0001501" IndentLevel="2" HelpContext="%DOC%" />
+                    <ParameterBlock Id="%AID%_PB-nnn" Name="BusVoltageCyclic" Inline="true" Layout="Grid" HelpContext="BPS-Status-zyklisch-senden"> <!-- cyclic pattern -->
                       <Rows>
                         <Row Id="%AID%_PB-nnn_R-1" Name="Row1" />
                       </Rows>
@@ -198,12 +198,12 @@
                     <ComObjectRefRef RefId="%AID%_O-%TT%00004_R-%TT%0000401" />
                   </when>
                 </choose>
-                <ParameterRefRef RefId="%AID%_UP-%TT%00005_R-%TT%0000501" IndentLevel="1" /> <!-- Bus Current -->
+                <ParameterRefRef RefId="%AID%_UP-%TT%00005_R-%TT%0000501" IndentLevel="1" HelpContext="%DOC%" /> <!-- Bus Current -->
                 <choose ParamRefId="%AID%_UP-%TT%00005_R-%TT%0000501">
                   <when test="1">
-                    <ParameterRefRef RefId="%AID%_UP-%TT%00018_R-%TT%0001801" IndentLevel="2" />
-                    <ParameterRefRef RefId="%AID%_UP-%TT%00019_R-%TT%0001901" IndentLevel="2" />
-                    <ParameterBlock Id="%AID%_PB-nnn" Name="BusCurrentCyclic" Inline="true" Layout="Grid"> <!-- cyclic pattern -->
+                    <ParameterRefRef RefId="%AID%_UP-%TT%00018_R-%TT%0001801" IndentLevel="2" HelpContext="%DOC%" />
+                    <ParameterRefRef RefId="%AID%_UP-%TT%00019_R-%TT%0001901" IndentLevel="2" HelpContext="%DOC%" />
+                    <ParameterBlock Id="%AID%_PB-nnn" Name="BusCurrentCyclic" Inline="true" Layout="Grid" HelpContext="BPS-Status-zyklisch-senden"> <!-- cyclic pattern -->
                       <Rows>
                         <Row Id="%AID%_PB-nnn_R-1" Name="Row1" />
                       </Rows>
@@ -221,12 +221,12 @@
                     <ComObjectRefRef RefId="%AID%_O-%TT%00005_R-%TT%0000501" />
                   </when>
                 </choose>
-                <ParameterRefRef RefId="%AID%_UP-%TT%00006_R-%TT%0000601" IndentLevel="1" /> <!-- Bus Load -->
+                <ParameterRefRef RefId="%AID%_UP-%TT%00006_R-%TT%0000601" IndentLevel="1" HelpContext="%DOC%" /> <!-- Bus Load -->
                 <choose ParamRefId="%AID%_UP-%TT%00006_R-%TT%0000601">
                   <when test="1">
-                    <ParameterRefRef RefId="%AID%_UP-%TT%00022_R-%TT%0002201" IndentLevel="2" />
-                    <ParameterRefRef RefId="%AID%_UP-%TT%00023_R-%TT%0002301" IndentLevel="2" />
-                    <ParameterBlock Id="%AID%_PB-nnn" Name="BusLoadCyclic" Inline="true" Layout="Grid"> <!-- cyclic pattern -->
+                    <ParameterRefRef RefId="%AID%_UP-%TT%00022_R-%TT%0002201" IndentLevel="2" HelpContext="%DOC%" />
+                    <ParameterRefRef RefId="%AID%_UP-%TT%00023_R-%TT%0002301" IndentLevel="2" HelpContext="%DOC%" />
+                    <ParameterBlock Id="%AID%_PB-nnn" Name="BusLoadCyclic" Inline="true" Layout="Grid" HelpContext="BPS-Status-zyklisch-senden"> <!-- cyclic pattern -->
                       <Rows>
                         <Row Id="%AID%_PB-nnn_R-1" Name="Row1" />
                       </Rows>
@@ -244,12 +244,12 @@
                     <ComObjectRefRef RefId="%AID%_O-%TT%00006_R-%TT%0000601" />
                   </when>
                 </choose>
-                <ParameterRefRef RefId="%AID%_UP-%TT%00007_R-%TT%0000701" IndentLevel="1" /> <!-- AUX Voltage -->
+                <ParameterRefRef RefId="%AID%_UP-%TT%00007_R-%TT%0000701" IndentLevel="1" HelpContext="%DOC%" /> <!-- AUX Voltage -->
                 <choose ParamRefId="%AID%_UP-%TT%00007_R-%TT%0000701">
                   <when test="1">
-                    <ParameterRefRef RefId="%AID%_UP-%TT%00026_R-%TT%0002601" IndentLevel="2" />
-                    <ParameterRefRef RefId="%AID%_UP-%TT%00027_R-%TT%0002701" IndentLevel="2" />
-                    <ParameterBlock Id="%AID%_PB-nnn" Name="AUXVoltageCyclic" Inline="true" Layout="Grid"> <!-- cyclic pattern -->
+                    <ParameterRefRef RefId="%AID%_UP-%TT%00026_R-%TT%0002601" IndentLevel="2" HelpContext="%DOC%" />
+                    <ParameterRefRef RefId="%AID%_UP-%TT%00027_R-%TT%0002701" IndentLevel="2" HelpContext="%DOC%" />
+                    <ParameterBlock Id="%AID%_PB-nnn" Name="AUXVoltageCyclic" Inline="true" Layout="Grid" HelpContext="BPS-Status-zyklisch-senden"> <!-- cyclic pattern -->
                       <Rows>
                         <Row Id="%AID%_PB-nnn_R-1" Name="Row1" />
                       </Rows>
@@ -267,12 +267,12 @@
                     <ComObjectRefRef RefId="%AID%_O-%TT%00007_R-%TT%0000701" />
                   </when>
                 </choose>
-                <ParameterRefRef RefId="%AID%_UP-%TT%00008_R-%TT%0000801" IndentLevel="1" /> <!-- AUX Current -->
+                <ParameterRefRef RefId="%AID%_UP-%TT%00008_R-%TT%0000801" IndentLevel="1" HelpContext="%DOC%" /> <!-- AUX Current -->
                 <choose ParamRefId="%AID%_UP-%TT%00008_R-%TT%0000801">
                   <when test="1">
-                    <ParameterRefRef RefId="%AID%_UP-%TT%00030_R-%TT%0003001" IndentLevel="2" />
-                    <ParameterRefRef RefId="%AID%_UP-%TT%00031_R-%TT%0003101" IndentLevel="2" />
-                    <ParameterBlock Id="%AID%_PB-nnn" Name="AUXCurrentCyclic" Inline="true" Layout="Grid"> <!-- cyclic pattern -->
+                    <ParameterRefRef RefId="%AID%_UP-%TT%00030_R-%TT%0003001" IndentLevel="2" HelpContext="%DOC%" />
+                    <ParameterRefRef RefId="%AID%_UP-%TT%00031_R-%TT%0003101" IndentLevel="2" HelpContext="%DOC%" />
+                    <ParameterBlock Id="%AID%_PB-nnn" Name="AUXCurrentCyclic" Inline="true" Layout="Grid" HelpContext="BPS-Status-zyklisch-senden"> <!-- cyclic pattern -->
                       <Rows>
                         <Row Id="%AID%_PB-nnn_R-1" Name="Row1" />
                       </Rows>
@@ -290,12 +290,12 @@
                     <ComObjectRefRef RefId="%AID%_O-%TT%00008_R-%TT%0000801" />
                   </when>
                 </choose>
-                <ParameterRefRef RefId="%AID%_UP-%TT%00009_R-%TT%0000901" IndentLevel="1" /> <!-- Temperature -->
+                <ParameterRefRef RefId="%AID%_UP-%TT%00009_R-%TT%0000901" IndentLevel="1" HelpContext="%DOC%" /> <!-- Temperature -->
                 <choose ParamRefId="%AID%_UP-%TT%00009_R-%TT%0000901">
                   <when test="1">
-                    <ParameterRefRef RefId="%AID%_UP-%TT%00034_R-%TT%0003401" IndentLevel="2" />
-                    <ParameterRefRef RefId="%AID%_UP-%TT%00035_R-%TT%0003501" IndentLevel="2" />
-                    <ParameterBlock Id="%AID%_PB-nnn" Name="TemperatureCyclic" Inline="true" Layout="Grid"> <!-- cyclic pattern -->
+                    <ParameterRefRef RefId="%AID%_UP-%TT%00034_R-%TT%0003401" IndentLevel="2" HelpContext="%DOC%" />
+                    <ParameterRefRef RefId="%AID%_UP-%TT%00035_R-%TT%0003501" IndentLevel="2" HelpContext="%DOC%" />
+                    <ParameterBlock Id="%AID%_PB-nnn" Name="TemperatureCyclic" Inline="true" Layout="Grid" HelpContext="BPS-Status-zyklisch-senden"> <!-- cyclic pattern -->
                       <Rows>
                         <Row Id="%AID%_PB-nnn_R-1" Name="Row1" />
                       </Rows>
