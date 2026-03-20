@@ -19,7 +19,7 @@
                 <Memory CodeSegment="%AID%_RS-04-00000" Offset="0" BitOffset="0" />
                 <Parameter Id="%AID%_UP-%TT%00001" Name="ResetTime" ParameterType="%AID%_PT-ResetTime" Offset="0" BitOffset="0" Text="Resetzeit" Value="10" SuffixText="s" />
               </Union>
-              <Union SizeInBit="256">
+              <Union SizeInBit="264">
                 <Memory CodeSegment="%AID%_RS-04-00000" Offset="1" BitOffset="0" />
                 <Parameter Id="%AID%_UP-%TT%00002" Name="PowerSupply1ChangeSend" ParameterType="%AID%_PT-OnOffYesNo" Offset="0" BitOffset="0" Text="Status Netzteil 1 senden" Value="0" />
                 <Parameter Id="%AID%_UP-%TT%00003" Name="PowerSupply2ChangeSend" ParameterType="%AID%_PT-OnOffYesNo" Offset="0" BitOffset="1" Text="Status Netzteil 2 senden" Value="0" />
