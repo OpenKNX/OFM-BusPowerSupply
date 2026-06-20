@@ -172,9 +172,6 @@ void BusPowerSupplyModule::loop(bool configured)
     {
         _pwr1Ok = pwr1Ok;
         openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_PW1, _pwr1Ok ? OPENKNX_BPS_STATUS_ACTIVE_ON : !OPENKNX_BPS_STATUS_ACTIVE_ON);
-
-        if (configured && ParamBPS_PowerSupply1ChangeSend)
-            KoBPS_PowerSupply1Status.value(pwr1Ok, DPT_Switch);
     }
 
     float pwr2Voltage = (float)analogRead(OPENKNX_BPS_PWR2_CHECK_PIN) / (float)4095 * (float)3.3 * (float)OPENKNX_BPS_PWR_CHECK_FACTOR;
@@ -183,9 +180,6 @@ void BusPowerSupplyModule::loop(bool configured)
     {
         _pwr2Ok = pwr2Ok;
         openknx.gpio.digitalWrite(OPENKNX_BPS_STATUS_PW2, _pwr2Ok ? OPENKNX_BPS_STATUS_ACTIVE_ON : !OPENKNX_BPS_STATUS_ACTIVE_ON);
-
-        if (configured && ParamBPS_PowerSupply2ChangeSend)
-            KoBPS_PowerSupply2Status.value(pwr2Ok, DPT_Switch);
     }
 
     uint8_t resetTime = configured ? ParamBPS_ResetTime : 10;
@@ -406,52 +400,17 @@ void BusPowerSupplyModule::loop(bool configured)
 
     if (configured)
     {
-        if (ParamBPS_PowerSupply1SendCyclicTimeMS > 0 && delayCheck(_powerSupply1SendTimer, ParamBPS_PowerSupply1SendCyclicTimeMS))
-        {
-            KoBPS_PowerSupply1Status.value(_pwr1Ok, DPT_Switch);
-            _powerSupply1SendTimer = delayTimerInit();
-        }
+        BpsStatus::sendSwitch(KoBPS_PowerSupply1Status, ParamBPS_PowerSupply1ChangeSend, _pwr1Ok, ParamBPS_PowerSupply1SendCyclicTimeMS, _powerSupply1SendTimer);
+        BpsStatus::sendSwitch(KoBPS_PowerSupply2Status, ParamBPS_PowerSupply2ChangeSend, _pwr2Ok, ParamBPS_PowerSupply2SendCyclicTimeMS, _powerSupply2SendTimer);
 
-        if (ParamBPS_PowerSupply2SendCyclicTimeMS > 0 && delayCheck(_powerSupply2SendTimer, ParamBPS_PowerSupply2SendCyclicTimeMS))
-        {
-            KoBPS_PowerSupply2Status.value(_pwr2Ok, DPT_Switch);
-            _powerSupply2SendTimer = delayTimerInit();
-        }
+        BpsStatus::sendValue<float>(KoBPS_BusVoltage, DPT_Value_Electric_Potential, ParamBPS_BusVoltageChangeSend, false, busVoltage, _statusBusVoltage, ParamBPS_BusVoltageSendCyclicTimeMS, ParamBPS_BusVoltageSendMinChangePercent, ParamBPS_BusVoltageSendMinChangeAbsolute, BpsStatus::SEND_RATE_MS);
+        BpsStatus::sendValue<float>(KoBPS_BusCurrent, DPT_Value_Electric_Current, ParamBPS_BusCurrentChangeSend, false, busCurrent, _statusBusCurrent, ParamBPS_BusCurrentSendCyclicTimeMS, ParamBPS_BusCurrentSendMinChangePercent, ParamBPS_BusCurrentSendMinChangeAbsolute, BpsStatus::SEND_RATE_MS, true, 1000.0f);
+        BpsStatus::sendValue<float>(KoBPS_BusLoad, DPT_Scaling, ParamBPS_BusLoadChangeSend, false, busLoad, _statusBusLoad, ParamBPS_BusLoadSendCyclicTimeMS, ParamBPS_BusLoadSendMinChangePercent, ParamBPS_BusLoadSendMinChangeAbsolute, BpsStatus::SEND_RATE_MS);
 
-        processSendValue(KoBPS_BusVoltage, DPT_Value_Electric_Potential, ParamBPS_BusVoltageChangeSend, ParamBPS_BusVoltageSendMinChangePercent, ParamBPS_BusVoltageSendMinChangeAbsolute, ParamBPS_BusVoltageSendCyclicTimeMS, _busVoltageSendTimer, _lastBusVoltageSent, busVoltage);
-        processSendValue(KoBPS_BusCurrent, DPT_Value_Electric_Current, ParamBPS_BusCurrentChangeSend, ParamBPS_BusCurrentSendMinChangePercent, ParamBPS_BusCurrentSendMinChangeAbsolute, ParamBPS_BusCurrentSendCyclicTimeMS, _busCurrentSendTimer, _lastBusCurrentSent, busCurrent, 1000);
-        processSendValue(KoBPS_BusLoad, DPT_Scaling, ParamBPS_BusLoadChangeSend, ParamBPS_BusLoadSendMinChangePercent, ParamBPS_BusLoadSendMinChangeAbsolute, ParamBPS_BusLoadSendCyclicTimeMS, _busLoadSendTimer, _lastBusLoadSent, busLoad);
+        BpsStatus::sendValue<float>(KoBPS_AuxVoltage, DPT_Value_Electric_Potential, ParamBPS_AuxVoltageChangeSend, false, auxVoltage, _statusAuxVoltage, ParamBPS_AuxVoltageSendCyclicTimeMS, ParamBPS_AuxVoltageSendMinChangePercent, ParamBPS_AuxVoltageSendMinChangeAbsolute, BpsStatus::SEND_RATE_MS);
+        BpsStatus::sendValue<float>(KoBPS_AuxCurrent, DPT_Value_Electric_Current, ParamBPS_AuxCurrentChangeSend, false, auxCurrent, _statusAuxCurrent, ParamBPS_AuxCurrentSendCyclicTimeMS, ParamBPS_AuxCurrentSendMinChangePercent, ParamBPS_AuxCurrentSendMinChangeAbsolute, BpsStatus::SEND_RATE_MS, true, 1000.0f);
 
-        processSendValue(KoBPS_AuxVoltage, DPT_Value_Electric_Potential, ParamBPS_AuxVoltageChangeSend, ParamBPS_AuxVoltageSendMinChangePercent, ParamBPS_AuxVoltageSendMinChangeAbsolute, ParamBPS_AuxVoltageSendCyclicTimeMS, _auxVoltageSendTimer, _lastAuxVoltageSent, auxVoltage);
-        processSendValue(KoBPS_AuxCurrent, DPT_Value_Electric_Current, ParamBPS_AuxCurrentChangeSend, ParamBPS_AuxCurrentSendMinChangePercent, ParamBPS_AuxCurrentSendMinChangeAbsolute, ParamBPS_AuxCurrentSendCyclicTimeMS, _auxCurrentSendTimer, _lastAuxCurrentSent, auxCurrent, 1000);
-        
-        processSendValue(KoBPS_Temperature, DPT_Value_Temp, ParamBPS_TemperatureChangeSend, ParamBPS_TemperatureSendMinChangePercent, ParamBPS_TemperatureSendMinChangeAbsolute, ParamBPS_TemperatureSendCyclicTimeMS, _temperatureSendTimer, _lastTemperatureSent, temperature);
-    }
-}
-
-void BusPowerSupplyModule::processSendValue(GroupObject& ko, Dpt dpt, bool send, uint8_t sendMinChangePercent, uint16_t sendMinChangeAbsolute, uint32_t sendCyclicTimeMS, uint32_t& cyclicSendTimer, float& lastSentValue, float currentValue, uint16_t checkMultiply)
-{
-    if (!send)
-        return;
-
-    uint16_t currentDifference = round(abs(lastSentValue - currentValue * checkMultiply));
-    if (currentDifference > 0)
-    {
-        if ((lastSentValue == 0 || currentDifference >= lastSentValue * sendMinChangePercent / checkMultiply) &&
-            currentDifference >= sendMinChangeAbsolute)
-        {
-            ko.value(currentValue, dpt);
-            lastSentValue = currentValue * checkMultiply;
-        }
-        else
-            ko.valueNoSend(currentValue, dpt);
-    }
-
-    if (sendCyclicTimeMS > 0 && delayCheckMillis(cyclicSendTimer, sendCyclicTimeMS))
-    {
-        ko.value(currentValue, dpt);
-        lastSentValue = currentValue * checkMultiply;
-        cyclicSendTimer = delayTimerInit();
+        BpsStatus::sendValue<float>(KoBPS_Temperature, DPT_Value_Temp, ParamBPS_TemperatureChangeSend, false, temperature, _statusTemperature, ParamBPS_TemperatureSendCyclicTimeMS, ParamBPS_TemperatureSendMinChangePercent, ParamBPS_TemperatureSendMinChangeAbsolute, BpsStatus::SEND_RATE_MS);
     }
 }
 

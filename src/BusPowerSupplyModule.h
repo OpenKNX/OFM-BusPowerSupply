@@ -1,5 +1,6 @@
 #pragma once
 #include "OpenKNX.h"
+#include "StatusOutput.h"
 #include "hardware.h"
 #include "knxprod.h"
 #include <INA238.h>
@@ -58,8 +59,6 @@ class BusPowerSupplyModule : public OpenKNX::Module
     void pwr2On();
     void pwr2Off();
 
-    void processSendValue(GroupObject& ko, Dpt dpt, bool send, uint8_t sendMinChangePercent, uint16_t sendMinChangeAbsolute, uint32_t sendCyclicTimeMS, uint32_t& cyclicSendTimer, float& lastSentValue, float currentValue, uint16_t checkMultiply = 1);
-
     INA238 _inaKnx = INA238(OPENKNX_BPS_CURRENT_KNX_INA_ADDR, &OPENKNX_GPIO_WIRE);
     INA238 _inaAux = INA238(OPENKNX_BPS_CURRENT_AUX_INA_ADDR, &OPENKNX_GPIO_WIRE);
 
@@ -87,22 +86,14 @@ class BusPowerSupplyModule : public OpenKNX::Module
     bool _resetActive = false;
     uint32_t _resetStarted = 0;
 
-    float _lastPowerSupply1Sent = 0;
-    float _lastPowerSupply2Sent = 0;
-    float _lastBusVoltageSent = 0;
-    float _lastBusCurrentSent = 0;
-    float _lastBusLoadSent = 0;
-    float _lastAuxVoltageSent = 0;
-    float _lastAuxCurrentSent = 0;
-    float _lastTemperatureSent = 0;
     uint32_t _powerSupply1SendTimer = 0;
     uint32_t _powerSupply2SendTimer = 0;
-    uint32_t _busVoltageSendTimer = 0;
-    uint32_t _busCurrentSendTimer = 0;
-    uint32_t _busLoadSendTimer = 0;
-    uint32_t _auxVoltageSendTimer = 0;
-    uint32_t _auxCurrentSendTimer = 0;
-    uint32_t _temperatureSendTimer = 0;
+    BpsStatus::ValueState _statusBusVoltage;
+    BpsStatus::ValueState _statusBusCurrent;
+    BpsStatus::ValueState _statusBusLoad;
+    BpsStatus::ValueState _statusAuxVoltage;
+    BpsStatus::ValueState _statusAuxCurrent;
+    BpsStatus::ValueState _statusTemperature;
 
     uint32_t _busLoadUpdateTimer = 0;
     uint32_t _rxLastBusLoadTime;
